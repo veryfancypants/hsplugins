@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Xml;
 using Studio;
-using ToolBox;
 using ToolBox.Extensions;
 using UnityEngine;
 using Vectrosity;
@@ -167,8 +164,6 @@ namespace HSPE.AMModules
                     line.lineWidth = 2f;
                     line.active = false;
                 }
-
-                MainWindow._self._cameraEventsDispatcher.onPreRender += UpdateGizmosIf;
             }
 
             if (this._target.type == GenericOCITarget.Type.Character)
@@ -196,7 +191,7 @@ namespace HSPE.AMModules
                 this._boneEditionShortcuts.Add(this._parent.transform.FindDescendant("cf_j_foot_L"), "L. Foot");
                 this._boneEditionShortcuts.Add(this._parent.transform.FindDescendant("cf_j_foot_R"), "R. Foot");
                 this._boneEditionShortcuts.Add(this._parent.transform.FindDescendant("cf_J_FaceBase"), "Face");
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
                 this._boneEditionShortcuts.Add(this._parent.transform.FindDescendant("cf_J_Hand_s_L"), "L. Hand");
                 this._boneEditionShortcuts.Add(this._parent.transform.FindDescendant("cf_J_Hand_s_R"), "R. Hand");
                 this._boneEditionShortcuts.Add(this._parent.transform.FindDescendant("cf_J_Foot02_L"), "L. Foot");
@@ -243,12 +238,10 @@ namespace HSPE.AMModules
         #endregion
 
         #region Public Methods
-        #region Chara Only Methods
         public override void IKExecutionOrderOnPostLateUpdate()
         {
             this.ApplyBoneManualCorrection();
         }
-        #endregion
 
         public override void DrawAdvancedModeChanged()
         {
@@ -344,12 +337,21 @@ namespace HSPE.AMModules
             }
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
             bool newDrawGizmos = GUILayout.Toggle(this._drawGizmos, "Draw Gizmos");
             if (newDrawGizmos != this._drawGizmos)
             {
                 this._drawGizmos = newDrawGizmos;
                 UpdateDebugLinesState(this);
             }
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Unfold modified"))
+            {
+                foreach (KeyValuePair<GameObject, TransformData> pair in this._dirtyBones)
+                    this.OpenParents(pair.Key);
+            }
+            GUILayout.EndHorizontal();
+
             GUILayout.BeginHorizontal();
             GUILayout.Label("Legend:");
             Color co = GUI.color;
@@ -1120,15 +1122,6 @@ namespace HSPE.AMModules
         #endregion
 
         #region Private Methods
-        private static void UpdateGizmosIf()
-        {
-            if (MainWindow._self._poseTarget != null && GizmosEnabled(MainWindow._self._poseTarget._bonesEditor))
-            {
-                MainWindow._self._poseTarget._bonesEditor.UpdateGizmos();
-                MainWindow._self._poseTarget._bonesEditor.DrawGizmos();
-            }
-        }
-
         private void ResetAll()
         {
             while (this._dirtyBones.Count != 0)
@@ -1427,8 +1420,11 @@ namespace HSPE.AMModules
             }
         }
 
-        private void UpdateGizmos()
+        public override void UpdateGizmos()
         {
+            if (this.GizmosEnabled() == false)
+                return;
+
             Vector3 topLeftForward = this._boneTarget.transform.position + (this._boneTarget.up + -this._boneTarget.right + this._boneTarget.forward) * _cubeSize,
                 topRightForward = this._boneTarget.transform.position + (this._boneTarget.up + this._boneTarget.right + this._boneTarget.forward) * _cubeSize,
                 bottomLeftForward = this._boneTarget.transform.position + ((-this._boneTarget.up + -this._boneTarget.right + this._boneTarget.forward) * _cubeSize),
@@ -1454,24 +1450,21 @@ namespace HSPE.AMModules
             _cubeDebugLines[i++].SetPoints(this._boneTarget.transform.position, this._boneTarget.transform.position + this._boneTarget.right * _cubeSize * 2);
             _cubeDebugLines[i++].SetPoints(this._boneTarget.transform.position, this._boneTarget.transform.position + this._boneTarget.up * _cubeSize * 2);
             _cubeDebugLines[i++].SetPoints(this._boneTarget.transform.position, this._boneTarget.transform.position + this._boneTarget.forward * _cubeSize * 2);
-        }
 
-        private void DrawGizmos()
-        {
             foreach (VectorLine line in _cubeDebugLines)
                 line.Draw();
         }
 
         private static void UpdateDebugLinesState(BonesEditor self)
         {
-            bool e = GizmosEnabled(self);
+            bool e = self != null && self.GizmosEnabled();
             foreach (VectorLine line in _cubeDebugLines)
                 line.active = e;
         }
 
-        private static bool GizmosEnabled(BonesEditor self)
+        private bool GizmosEnabled()
         {
-            return self != null && self._isEnabled && PoseController._drawAdvancedMode && self._drawGizmos && self._boneTarget != null;
+            return this._isEnabled && PoseController._drawAdvancedMode && this._drawGizmos && this._boneTarget != null;
         }
         #endregion
 
@@ -1509,7 +1502,7 @@ namespace HSPE.AMModules
                             HashedPair<BonesEditor, Transform> pair = (HashedPair<BonesEditor, Transform>)parameter;
                             pair.key.SetBoneRotation(pair.value, Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor));
                         },
-                        interpolateAfter: null, 
+                        interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTarget,
                         getValue: (oci, parameter) => ((HashedPair<BonesEditor, Transform>)parameter).value.localRotation,
                         readValueFromXml: (parameter, node) => node.ReadQuaternion("value"),

@@ -5,9 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using RootMotion.FinalIK;
-#if HONEYSELECT || PLAYHOME
+#if IPA
 using Harmony;
-#else
+#elif BEPINEX
 using HarmonyLib;
 #endif
 #if PLAYHOME

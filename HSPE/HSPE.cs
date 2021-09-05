@@ -1,31 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-#if AISHOUJO || KOIKATSU
-using HarmonyLib;
-#else
+#if IPA
 using Harmony;
-#endif
-using HSPE.AMModules;
-#if HONEYSELECT || PLAYHOME
 using IllusionPlugin;
-#endif
-using UILib;
-#if KOIKATSU || AISHOUJO
+#elif BEPINEX
+using HarmonyLib;
 using BepInEx;
 #endif
+using HSPE.AMModules;
+using UILib;
 using ToolBox;
 using ToolBox.Extensions;
 using UnityEngine.SceneManagement;
 
 namespace HSPE
 {
-#if KOIKATSU || AISHOUJO
+#if BEPINEX
     [BepInPlugin(_guid, _name, _versionNum)]
     [BepInDependency("com.bepis.bepinex.extendedsave")]
 #if KOIKATSU
     [BepInProcess("CharaStudio")]
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
     [BepInProcess("StudioNEOV2")]
 #endif
 #endif
@@ -48,10 +44,14 @@ namespace HSPE
         internal const string _name = "AIPE";
         internal const string _guid = "com.joan6694.illusionplugins.poseeditor";
         internal const int saveVersion = 0;
+#elif HONEYSELECT2
+        internal const string _name = "HS2PE";
+        internal const string _guid = "com.joan6694.illusionplugins.poseeditor";
+        internal const int saveVersion = 0;
 #endif
-        internal const string _versionNum = "2.11.1";
+        internal const string _versionNum = "2.12.0";
 
-#if HONEYSELECT || PLAYHOME
+#if IPA
         public override string Name { get { return _name; } }
         public override string Version { get { return _versionNum; } }
 #if HONEYSELECT
@@ -67,7 +67,7 @@ namespace HSPE
             HarmonyExtensions.CreateInstance(_guid).PatchAllSafe();
         }
 
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
         protected override void LevelLoaded(Scene scene, LoadSceneMode mode)
         {
             base.LevelLoaded(scene, mode);

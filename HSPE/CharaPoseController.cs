@@ -2,9 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Xml;
-#if HONEYSELECT || PLAYHOME
+#if IPA
 using Harmony;
-#else
+#elif BEPINEX
 using HarmonyLib;
 #endif
 using HSPE.AMModules;
@@ -12,7 +12,7 @@ using RootMotion.FinalIK;
 using Studio;
 using ToolBox.Extensions;
 using UnityEngine;
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
 using Manager;
 #endif
 
@@ -92,7 +92,7 @@ namespace HSPE
                     onPostLateUpdate(__instance);
             }
         }
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
         [HarmonyPatch(typeof(Character), "LateUpdate")]
         private class Character_Patches
         {
@@ -225,10 +225,12 @@ namespace HSPE
             this._body = this._target.ociChar.animeIKCtrl.IK;
 #elif PLAYHOME
             this._body = this._target.ociChar.fullBodyIK;
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
             this._body = this._target.ociChar.finalIK;
 #endif
+#if HONEYSELECT
             if (this._target.isFemale)
+#endif
             {
                 this._boobsEditor = new BoobsEditor(this, this._target);
                 this._modules.Add(this._boobsEditor);
@@ -263,7 +265,7 @@ namespace HSPE
             this._siriDamL = this.transform.FindDescendant("cf_d_siri_L");
             this._siriDamR = this.transform.FindDescendant("cf_d_siri_R");
             this._kosi =     this.transform.FindDescendant("cf_s_waist02");
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             this._siriDamL = this.transform.Find("BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_SiriDam_L");
             this._siriDamR = this.transform.Find("BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_SiriDam_R");
             this._kosi =     this.transform.Find("BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_Kosi02_s");
@@ -274,7 +276,7 @@ namespace HSPE
             this._leftFoot2ParentOriginalRotation = 357.7f;
 #elif KOIKATSU
             this._leftFoot2ParentOriginalRotation = 358f;
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             this._leftFoot2ParentOriginalRotation = 357.62f;
 #endif
 
@@ -284,7 +286,7 @@ namespace HSPE
             this._rightFoot2ParentOriginalRotation = 357.7f;
 #elif KOIKATSU
             this._rightFoot2ParentOriginalRotation = 358f;
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             this._rightFoot2ParentOriginalRotation = 357.62f;
 #endif
 
@@ -299,7 +301,7 @@ namespace HSPE
             CharBody_Patches.onPostLateUpdate += this.CharBodyOnPostLateUpdate;
 #elif PLAYHOME
             Expression_Patches.onPostLateUpdate += this.ExpressionOnPostLateUpdate;
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
             Character_Patches.onPostLateUpdate += this.CharacterOnPostLateUpdate;
 #endif
             OCIChar_ChangeChara_Patches.onChangeChara += this.OnCharacterReplaced;
@@ -358,7 +360,7 @@ namespace HSPE
             CharBody_Patches.onPostLateUpdate -= this.CharBodyOnPostLateUpdate;
 #elif PLAYHOME
             Expression_Patches.onPostLateUpdate -= this.ExpressionOnPostLateUpdate;
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
             Character_Patches.onPostLateUpdate -= this.CharacterOnPostLateUpdate;
 #endif
             OCIChar_ChangeChara_Patches.onChangeChara -= this.OnCharacterReplaced;
@@ -532,7 +534,7 @@ namespace HSPE
                 return;
             this.ApplyJointCorrection();
         }
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
         private void CharacterOnPostLateUpdate()
         {
             this.ApplyJointCorrection();

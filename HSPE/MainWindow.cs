@@ -5,13 +5,13 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Xml;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
 using AIChara;
 using Illusion.Extensions;
 #endif
-#if HONEYSELECT || PLAYHOME
+#if IPA
 using Harmony;
-#else
+#elif BEPINEX
 using HarmonyLib;
 #endif
 using HSPE.AMModules;
@@ -27,10 +27,9 @@ using UnityEngine.UI;
 using Vectrosity;
 using Input = UnityEngine.Input;
 using Path = System.IO.Path;
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
 using ExtensibleSaveFormat;
 using TMPro;
-using System.Runtime.CompilerServices;
 #endif
 
 namespace HSPE
@@ -64,6 +63,9 @@ namespace HSPE
 #elif AISHOUJO
         private const string _config = "config.xml";
         private const string _extSaveKey = "aipe";
+#elif HONEYSELECT2
+        private const string _config = "config.xml";
+        private const string _extSaveKey = "hs2pe";
 #endif
         #endregion
 
@@ -134,7 +136,7 @@ namespace HSPE
         private Quaternion _lastFKBonesRotation;
         private readonly List<FKBoneEntry> _fkBoneEntries = new List<FKBoneEntry>();
         private Dictionary<Transform, GuideObject> _dicGuideObject = new Dictionary<Transform, GuideObject>();
-        private bool _mouseInWindow;
+        private RectTransform _imguiBackground;
         #endregion
 
         #region Public Accessors
@@ -228,9 +230,9 @@ namespace HSPE
             OCIChar_SetCoordinateInfo_Patches.onSetCoordinateInfo += this.OnCoordinateReplaced;
 #endif
             this._dicGuideObject = (Dictionary<Transform, GuideObject>)GuideObjectManager.Instance.GetPrivate("dicGuideObject");
-#if HONEYSELECT || PLAYHOME
+#if IPA
             HSExtSave.HSExtSave.RegisterHandler("hspe", null, null, this.OnSceneLoad, this.OnSceneImport, this.OnSceneSave, null, null);
-#elif KOIKATSU || AISHOUJO
+#elif BEPINEX
             ExtendedSave.CardBeingLoaded += this.OnCharaLoad;
             ExtendedSave.CardBeingSaved += this.OnCharaSave;
             ExtendedSave.SceneBeingLoaded += this.OnSceneLoad;
@@ -239,7 +241,7 @@ namespace HSPE
 #endif
             this.ExecuteDelayed(() =>
             {
-                TimelineCompatibility.Init(() =>
+                if(TimelineCompatibility.Init())
                 {
                     BonesEditor.TimelineCompatibility.Populate();
                     CollidersEditor.TimelineCompatibility.Populate();
@@ -248,7 +250,7 @@ namespace HSPE
                     BoobsEditor.TimelineCompatibility.Populate();
                     IKEditor.TimelineCompatibility.Populate();
                     PoseController.Populate();
-                });
+                }
             }, 3);
         }
 
@@ -314,14 +316,13 @@ namespace HSPE
         {
             if (this._poseTarget != null && PoseController._drawAdvancedMode)
             {
+                this._imguiBackground.gameObject.SetActive(true);
                 IMGUIExtensions.DrawBackground(this._advancedModeRect);
                 this._advancedModeRect = GUILayout.Window(_uniqueId, this._advancedModeRect, this._poseTarget.AdvancedModeWindow, "Advanced mode");
-                this._mouseInWindow = this._advancedModeRect.Contains(Event.current.mousePosition);
-                if (this._mouseInWindow)
-                    this.SetNoControlCondition();
+                IMGUIExtensions.FitRectTransformToRect(this._imguiBackground, this._advancedModeRect);
             }
-            else
-                this._mouseInWindow = false;
+            else if (this._imguiBackground != null)
+                this._imguiBackground.gameObject.SetActive(false);
         }
 
         protected virtual void OnDestroy()
@@ -417,11 +418,13 @@ namespace HSPE
             UIUtility.Init();
 
 #if HONEYSELECT || PLAYHOME
-            AssetBundle bundle = AssetBundle.LoadFromMemory(Properties.Resources.HSPEResources);
+            AssetBundle bundle = AssetBundle.LoadFromMemory(Assembly.GetExecutingAssembly().GetResource("HSPE.Resources.HSPEResources.unity3d"));
 #elif KOIKATSU
-            AssetBundle bundle = AssetBundle.LoadFromMemory(Properties.ResourcesKOI.KKPEResources);
+            AssetBundle bundle = AssetBundle.LoadFromMemory(Assembly.GetExecutingAssembly().GetResource("HSPE.Resources.KKPEResources.unity3d"));
 #elif AISHOUJO
-            AssetBundle bundle = AssetBundle.LoadFromMemory(Properties.ResourcesAI.AIPEResources);
+            AssetBundle bundle = AssetBundle.LoadFromMemory(Assembly.GetExecutingAssembly().GetResource("HSPE.Resources.AIPEResources.unity3d"));
+#elif HONEYSELECT2
+            AssetBundle bundle = AssetBundle.LoadFromMemory(Assembly.GetExecutingAssembly().GetResource("HSPE.Resources.HS2PEResources.unity3d"));
 #endif
             Texture2D texture = bundle.LoadAsset<Texture2D>("Icon");
             this.vectorEndCap = bundle.LoadAsset<Texture2D>("VectorEndCap");
@@ -472,6 +475,8 @@ namespace HSPE
             uiPrefab = bundle.LoadAsset<GameObject>("KKPECanvas");
 #elif AISHOUJO
             uiPrefab = bundle.LoadAsset<GameObject>("AIPECanvas");
+#elif HONEYSELECT2
+            uiPrefab = bundle.LoadAsset<GameObject>("HS2PECanvas");
 #endif
             this._ui = Instantiate(uiPrefab).GetComponent<Canvas>();
             uiPrefab.hideFlags |= HideFlags.HideInHierarchy;
@@ -921,7 +926,7 @@ namespace HSPE
                         ((CharaPoseController)this._poseTarget).rightFootJointCorrection = this._rightFootCorrectionToggle.isOn;
                 });
             }
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
             {
                 RectTransform parent = GameObject.Find("StudioScene").transform.Find("Canvas Main Menu/02_Manipulate/00_Chara/06_Joint") as RectTransform;
                 RawImage container = UIUtility.CreateRawImage("Additional Container", parent);
@@ -978,8 +983,10 @@ namespace HSPE
                 });
             }
 #endif
-            foreach (Text childText in this._ui.GetComponentsInChildren<Text>())
+            foreach (Text childText in this._ui.GetComponentsInChildren<Text>(true))
                 childText.font = UIUtility.defaultFont;
+
+            this._imguiBackground = IMGUIExtensions.CreateUGUIPanelForIMGUI();
         }
 
         private void OnWindowResize()
@@ -1258,11 +1265,6 @@ namespace HSPE
         #endregion
 
         #region Public Methods
-        public void SetNoControlCondition()
-        {
-            Studio.Studio.Instance.cameraCtrl.noCtrlCondition = this.CameraControllerCondition;
-        }
-
         public void OnDuplicate(ObjectCtrlInfo source, ObjectCtrlInfo destination)
         {
             PoseController destinationController;
@@ -1455,14 +1457,20 @@ namespace HSPE
             }
         }
 
-        private bool CameraControllerCondition()
+        [HarmonyPatch(typeof(Studio.CameraControl), "InputMouseProc")]
+        private static class CameraControl_LateUpdate_Patches
         {
-            return this._mouseInWindow || (this._poseTarget != null && this._poseTarget.isDraggingDynamicBone);
+            private static bool Prefix()
+            {
+                if (_self._poseTarget != null && _self._poseTarget.isDraggingDynamicBone)
+                    return false;
+                return true;
+            }
         }
         #endregion
 
         #region Saves
-#if HONEYSELECT || PLAYHOME
+#if IPA
         private void OnSceneLoad(string scenePath, XmlNode node)
         {
             this._lastObjectCount = 0;
@@ -1576,7 +1584,7 @@ namespace HSPE
                 }
             }
         }
-#elif KOIKATSU || AISHOUJO
+#elif BEPINEX
         private void OnCharaLoad(ChaFile file)
         {
             PluginData data = ExtendedSave.GetExtendedDataById(file, _extSaveKey);

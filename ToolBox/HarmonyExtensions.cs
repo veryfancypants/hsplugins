@@ -12,7 +12,7 @@ using HarmonyLib;
 namespace ToolBox.Extensions {
     internal static class HarmonyExtensions
     {
-#if IPA 
+#if IPA
         public static HarmonyInstance CreateInstance(string guid)
 #elif BEPINEX
         public static Harmony CreateInstance(string guid)
@@ -43,7 +43,7 @@ namespace ToolBox.Extensions {
                     if (harmonyMethods == null || harmonyMethods.Count <= 0)
                         continue;
                     HarmonyMethod attributes = HarmonyMethod.Merge(harmonyMethods);
-                    //new PatchProcessor(self, type, attributes).Patch();
+                    new PatchProcessor(self, type, attributes).Patch();
                 }
                 catch (Exception e)
                 {

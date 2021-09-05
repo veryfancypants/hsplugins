@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 
 namespace ToolBox.Extensions {
     internal static class ReflectionExtensions
     {
-
         private struct MemberKey
         {
             public readonly Type type;
@@ -189,6 +189,16 @@ namespace ToolBox.Extensions {
             if (t != null)
                 return t.GetMethod("MoveNext", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             return null;
+        }
+
+        public static byte[] GetResource(this Assembly a, string resourceName)
+        {
+            using (Stream stream = a.GetManifestResourceStream(resourceName))
+            {
+                byte[] arr = new byte[stream.Length];
+                stream.Read(arr, 0, arr.Length);
+                return arr;
+            }
         }
     }
 }

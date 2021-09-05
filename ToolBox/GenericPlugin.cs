@@ -15,8 +15,8 @@ namespace ToolBox
        : BaseUnityPlugin
 #endif
     {
-        internal Binary _binary;
-        internal int _level = -1;
+        public Binary binary { get; private set; }
+        public int level { get; private set; } = -1;
 #if IPA
         private static PluginComponent _pluginComponent;
         private Component _onGUIDispatcher = null;
@@ -50,7 +50,7 @@ namespace ToolBox
 
         public void OnLevelWasLoaded(int level)
         {
-            this._level = level;
+            this.level = level;
             this.LevelLoaded(level);
         }
 
@@ -72,9 +72,8 @@ namespace ToolBox
 
         protected virtual void Awake()
         {
-            UnityEngine.Debug.LogError("Toolbox.GenericPlugin.Awake" + Application.productName);
 #if BEPINEX
-            SceneManager.sceneLoaded += this.LevelLoaded; 
+            SceneManager.sceneLoaded += this.LevelLoaded;
 #endif
             switch (Application.productName)
             {
@@ -84,6 +83,9 @@ namespace ToolBox
 #elif KOIKATSU
                 case "Koikatsu Party":
                 case "Koikatu":
+                case "KoikatuVR":
+#elif EMOTIONCREATORS
+                case "EmotionCreators":
 #elif AISHOUJO
                 case "AI-Syoujyo":
 #elif PLAYHOME
@@ -91,19 +93,20 @@ namespace ToolBox
 #elif HONEYSELECT2
                 case "HoneySelect2":
 #endif
-                    this._binary = Binary.Game;
+                    this.binary = Binary.Game;
                     break;
 #if HONEYSELECT
                 case "StudioNEO":
 #elif KOIKATSU
                 case "CharaStudio":
+#elif EMOTIONCREATORS
+                case "":
 #elif AISHOUJO || HONEYSELECT2
                 case "StudioNEOV2":
 #elif PLAYHOME
                 case "PlayHomeStudio":
 #endif
-                default:
-                    this._binary = Binary.Studio;
+                    this.binary = Binary.Studio;
                     break;
             }
 #if IPA
@@ -131,40 +134,26 @@ namespace ToolBox
 #endif
         }
 
-        protected virtual void LevelLoaded(int level)
-        {
-        }
+        protected virtual void LevelLoaded(int l) { }
 
 #if BEPINEX
         protected virtual void LevelLoaded(UnityEngine.SceneManagement.Scene scene, LoadSceneMode mode)
         {
             if (mode == LoadSceneMode.Single)
             {
-                this._level = scene.buildIndex;
+                this.level = scene.buildIndex;
                 this.LevelLoaded(scene.buildIndex);
             }
         }
 #endif
 
-        protected virtual void Update()
-        {
+        protected virtual void Update() { }
 
-        }
+        protected virtual void LateUpdate() { }
 
-        protected virtual void LateUpdate()
-        {
+        protected virtual void FixedUpdate() { }
 
-        }
-
-        protected virtual void FixedUpdate()
-        {
-
-        }
-
-        protected virtual void OnGUI()
-        {
-
-        }
+        protected virtual void OnGUI() { }
     }
 
 #if IPA

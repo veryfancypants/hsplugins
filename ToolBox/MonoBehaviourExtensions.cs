@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 #if IPA
 using IllusionInjector;
 using IllusionPlugin;
@@ -122,6 +123,42 @@ namespace ToolBox.Extensions {
         {
             yield return new WaitUntil(waitUntil);
             action();
+        }
+
+        private static readonly LinkedList<Action> _queuedActions = new LinkedList<Action>();
+        private static Coroutine _queueingCoroutine;
+        public static void QueueAction(this MonoBehaviour self, Action action)
+        {
+	        _queuedActions.AddFirst(action);
+	        if (_queueingCoroutine == null)
+		        _queueingCoroutine = self.StartCoroutine(QueueAction_Routine());
+        }
+
+#if IPA
+	    public static void QueueAction(this IPlugin self, Action action)
+	    {
+		    _queuedActions.AddFirst(action);
+		    if (_queueingCoroutine == null)
+			    _queueingCoroutine = self.StartCoroutine(QueueAction_Routine());
+	    }
+#endif
+
+        private static IEnumerator QueueAction_Routine()
+        {
+	        while (_queuedActions.Count != 0)
+	        {
+		        yield return null;
+		        try
+		        {
+			        _queuedActions.Last.Value?.Invoke();
+                    _queuedActions.RemoveLast();
+		        }
+		        catch (Exception e)
+		        {
+			        Debug.LogError("Queued action:\n" + e);
+		        }
+	        }
+	        _queueingCoroutine = null;
         }
     }
 }

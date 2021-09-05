@@ -20,7 +20,8 @@ namespace HSPE.AMModules
             FABRIKRoot,
             AimIK,
             CCDIK,
-            FullBodyBipedIK
+            FullBodyBipedIK,
+            LimbIK
         }
 
         private class IKWrapper
@@ -43,6 +44,8 @@ namespace HSPE.AMModules
                     this.type = IKType.AimIK;
                 else if (this.ik is FullBodyBipedIK)
                     this.type = IKType.FullBodyBipedIK;
+                else if (this.ik is LimbIK)
+                    this.type = IKType.LimbIK;
             }
         }
 
@@ -50,6 +53,7 @@ namespace HSPE.AMModules
         {
             public EditableValue<bool> originalEnabled;
             public EditableValue<float> originalWeight;
+            public EditableValue<bool> originalFixTransforms;
 
             protected IKData() { }
 
@@ -57,6 +61,7 @@ namespace HSPE.AMModules
             {
                 this.originalEnabled = other.originalEnabled;
                 this.originalWeight = other.originalWeight;
+                this.originalFixTransforms = other.originalFixTransforms;
             }
         }
 
@@ -211,273 +216,380 @@ namespace HSPE.AMModules
                 this.rightLeg = new ConstraintBendData(other.rightLeg);
             }
         }
+
+        private class LimbIKData : IKData
+        {
+            public EditableValue<float> originalRotationWeight;
+            public EditableValue<float> originalBendModifierWeight;
+
+            public LimbIKData() { }
+
+            public LimbIKData(LimbIKData other) : base(other)
+            {
+                this.originalRotationWeight = other.originalRotationWeight;
+                this.originalBendModifierWeight = other.originalBendModifierWeight;
+            }
+        }
         #endregion
 
         #region Private Variables
-        private readonly IKWrapper _ik;
-        private IKData _ikData;
         private readonly GenericOCITarget _target;
         private readonly bool _isCharacter;
+        private readonly bool _registered = false;
+        private readonly Dictionary<IK, IKWrapper> _iks = new Dictionary<IK, IKWrapper>();
+        private readonly Dictionary<IKWrapper, IKData> _dirtyIks = new Dictionary<IKWrapper, IKData>();
         private Vector2 _scroll;
+        private Action _updateAction;
+        private IKWrapper _ikTarget;
+        private Vector2 _iksScroll;
         #endregion
 
         #region Public Accessors
         public override AdvancedModeModuleType type { get { return AdvancedModeModuleType.IK; } }
         public override string displayName { get { return "IK"; } }
-        public override bool shouldDisplay { get { return this._ik != null && this._ik.type != IKType.Unknown; } }
+        public override bool shouldDisplay { get { return this._iks.Count != 0; } }
         #endregion
 
         #region Unity Methods
         public IKEditor(PoseController parent, GenericOCITarget target) : base(parent)
         {
             this._target = target;
-            IK ik = this._parent.GetComponentInChildren<IK>();
-            if (ik != null && this._parent._childObjects.Any(o => ik.transform.IsChildOf(o.transform)))
-                ik = null;
-            if (ik != null)
+            this.RefreshIKList();
+
+            if (this._iks.Any(ik => ik.Value.type == IKType.FullBodyBipedIK))
             {
-                this._ik = new IKWrapper(ik);
-                switch (this._ik.type)
-                {
-                    case IKType.FABRIK:
-                        this._ikData = new FABRIKData();
-                        break;
-                    case IKType.FABRIKRoot:
-                        this._ikData = new FABRIKRootData();
-                        break;
-                    case IKType.AimIK:
-                        this._ikData = new AimIKData();
-                        break;
-                    case IKType.CCDIK:
-                        this._ikData = new CCDIKData();
-                        break;
-                    case IKType.FullBodyBipedIK:
-                        this._ikData = new FullBodyBipedIKData();
-                        break;
-                }
-                if (this._ik.type == IKType.FullBodyBipedIK)
-                    this._parent.onLateUpdate += this.LateUpdate;
-                this._isCharacter = this._target.type == GenericOCITarget.Type.Character;
+                this._parent.onLateUpdate += this.LateUpdate;
+                this._registered = true;
             }
+            this._isCharacter = this._target.type == GenericOCITarget.Type.Character;
             this._incIndex = -1;
+        }
+
+        private void Update()
+        {
         }
 
         private void LateUpdate()
         {
-            IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)this._ik.solver;
-            FullBodyBipedIKData data = (FullBodyBipedIKData)this._ikData;
-            if (this._isCharacter == false || this._target.ociChar.oiCharInfo.enableIK)
+            foreach (KeyValuePair<IKWrapper, IKData> pair in this._dirtyIks)
             {
-                if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[0])
-                    this.ApplyFullBodyBipedEffectorData(solver.bodyEffector, data.body);
-                if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[4])
+                if (pair.Key.type != IKType.FullBodyBipedIK)
+                    continue;
+                IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)pair.Key.solver;
+                FullBodyBipedIKData data = (FullBodyBipedIKData)pair.Value;
+                if (this._isCharacter == false || this._target.ociChar.oiCharInfo.enableIK)
                 {
-                    this.ApplyFullBodyBipedEffectorData(solver.leftShoulderEffector, data.leftShoulder);
-                    this.ApplyFullBodyBipedConstraintBendData(solver.leftArmChain.bendConstraint, data.leftArm);
-                    this.ApplyFullBodyBipedEffectorData(solver.leftHandEffector, data.leftHand);
-                }
-                if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[3])
-                {
-                    this.ApplyFullBodyBipedEffectorData(solver.rightShoulderEffector, data.rightShoulder);
-                    this.ApplyFullBodyBipedConstraintBendData(solver.rightArmChain.bendConstraint, data.rightArm);
-                    this.ApplyFullBodyBipedEffectorData(solver.rightHandEffector, data.rightHand);
-                }
-                if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[2])
-                {
-                    this.ApplyFullBodyBipedEffectorData(solver.leftThighEffector, data.leftThigh);
-                    this.ApplyFullBodyBipedConstraintBendData(solver.leftLegChain.bendConstraint, data.leftLeg);
-                    this.ApplyFullBodyBipedEffectorData(solver.leftFootEffector, data.leftFoot);
-                }
-                if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[1])
-                {
-                    this.ApplyFullBodyBipedEffectorData(solver.rightThighEffector, data.rightThigh);
-                    this.ApplyFullBodyBipedConstraintBendData(solver.rightLegChain.bendConstraint, data.rightLeg);
-                    this.ApplyFullBodyBipedEffectorData(solver.rightFootEffector, data.rightFoot);
+                    if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[0])
+                        this.ApplyFullBodyBipedEffectorData(solver.bodyEffector, data.body);
+                    if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[4])
+                    {
+                        this.ApplyFullBodyBipedEffectorData(solver.leftShoulderEffector, data.leftShoulder);
+                        this.ApplyFullBodyBipedConstraintBendData(solver.leftArmChain.bendConstraint, data.leftArm);
+                        this.ApplyFullBodyBipedEffectorData(solver.leftHandEffector, data.leftHand);
+                    }
+                    if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[3])
+                    {
+                        this.ApplyFullBodyBipedEffectorData(solver.rightShoulderEffector, data.rightShoulder);
+                        this.ApplyFullBodyBipedConstraintBendData(solver.rightArmChain.bendConstraint, data.rightArm);
+                        this.ApplyFullBodyBipedEffectorData(solver.rightHandEffector, data.rightHand);
+                    }
+                    if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[2])
+                    {
+                        this.ApplyFullBodyBipedEffectorData(solver.leftThighEffector, data.leftThigh);
+                        this.ApplyFullBodyBipedConstraintBendData(solver.leftLegChain.bendConstraint, data.leftLeg);
+                        this.ApplyFullBodyBipedEffectorData(solver.leftFootEffector, data.leftFoot);
+                    }
+                    if (this._isCharacter == false || this._target.ociChar.oiCharInfo.activeIK[1])
+                    {
+                        this.ApplyFullBodyBipedEffectorData(solver.rightThighEffector, data.rightThigh);
+                        this.ApplyFullBodyBipedConstraintBendData(solver.rightLegChain.bendConstraint, data.rightLeg);
+                        this.ApplyFullBodyBipedEffectorData(solver.rightFootEffector, data.rightFoot);
+                    }
                 }
             }
         }
 
         public override void GUILogic()
         {
-            GUILayout.BeginVertical(GUI.skin.box);
-            this._scroll = GUILayout.BeginScrollView(this._scroll);
             Color c = GUI.color;
-            if (this._isCharacter == false)
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
+            this._iksScroll = GUILayout.BeginScrollView(this._iksScroll, false, true, GUI.skin.horizontalScrollbar, GUI.skin.verticalScrollbar, GUI.skin.box, GUILayout.ExpandWidth(false));
+            foreach (KeyValuePair<IK, IKWrapper> pair in this._iks)
             {
-                bool b = this._ik.ik.enabled;
+                if (this._dirtyIks.ContainsKey(pair.Value))
+                    GUI.color = Color.magenta;
+                if (ReferenceEquals(pair.Value, this._ikTarget))
+                    GUI.color = Color.cyan;
+                string dName = pair.Value.solver.GetRoot().name;
+                string newName;
+                if (BonesEditor._boneAliases.TryGetValue(dName, out newName))
+                    dName = newName;
                 GUILayout.BeginHorizontal();
-                if (this._ikData.originalEnabled.hasValue)
-                    GUI.color = Color.magenta;
-                b = GUILayout.Toggle(b, "Enabled", GUILayout.ExpandWidth(false));
-                GUI.color = c;
-
-                GUILayout.FlexibleSpace();
-
-                GUI.color = Color.red;
-                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)))
+                if (GUILayout.Button(dName + (this._dirtyIks.ContainsKey(pair.Value) ? "*" : "")))
                 {
-                    if (this._ikData.originalEnabled.hasValue)
-                    {
-                        this._ik.ik.enabled = this._ikData.originalEnabled;
-                        this._ikData.originalEnabled.Reset();
-                        if (this._ik.ik.enabled == false)
-                            this._ik.solver.FixTransforms();
-                    }
+                    this._ikTarget = pair.Value;
+                    ToolBox.TimelineCompatibility.RefreshInterpolablesList();
                 }
-                GUI.color = c;
+                GUILayout.Space(GUI.skin.verticalScrollbar.fixedWidth);
                 GUILayout.EndHorizontal();
-
-                if (b != this._ik.ik.enabled)
-                    this.SetIKEnabled(b);
-            }
-
-            {
-                if (this._ikData.originalWeight.hasValue)
-                    GUI.color = Color.magenta;
-                float v = this._ik.solver.GetIKPositionWeight();
-                v = this.FloatEditor(v, 0f, 1f, "Weight\t\t", "0.0000", onReset: (value) =>
-                {
-                    if (this._ikData.originalWeight.hasValue)
-                    {
-                        this._ik.solver.SetIKPositionWeight(this._ikData.originalWeight);
-                        this._ikData.originalWeight.Reset();
-                        return this._ik.solver.GetIKPositionWeight();
-                    }
-                    return value;
-                });
                 GUI.color = c;
-                if (!Mathf.Approximately(this._ik.solver.GetIKPositionWeight(), v))
-                    this.SetIKPositionWeight(v);
             }
+            GUILayout.EndScrollView();
 
-            switch (this._ik.type)
+            if (GUILayout.Button("Copy to FK"))
+                this.CopyToFK();
+            if (GUILayout.Button("Force refresh list"))
+                this.RefreshIKList();
+
             {
-                case IKType.FABRIK:
-                    this.FABRIKFields();
-                    break;
-                case IKType.FABRIKRoot:
-                    this.FABRIKRootFields();
-                    break;
-                case IKType.CCDIK:
-                    this.CCDIKFields();
-                    break;
-                case IKType.AimIK:
-                    this.AimIKFields();
-                    break;
-                case IKType.FullBodyBipedIK:
-                    this.FullBodyBipedIKFields();
-                    break;
+                GUI.color = Color.red;
+                if (GUILayout.Button("Reset all") && this._ikTarget != null)
+                    this.ResetAll();
+                GUI.color = c;
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.ExpandWidth(true));
+            this._scroll = GUILayout.BeginScrollView(this._scroll);
+            if (this._ikTarget != null)
+            {
+                IKData data;
+                this._dirtyIks.TryGetValue(this._ikTarget, out data);
+                if (this._isCharacter == false)
+                {
+                    bool b = this.GetIKEnabled(this._ikTarget); ;
+                    GUILayout.BeginHorizontal();
+                    if (data != null && data.originalEnabled.hasValue)
+                        GUI.color = Color.magenta;
+                    b = GUILayout.Toggle(b, "Enabled", GUILayout.ExpandWidth(false));
+                    if (b != this._ikTarget.ik.enabled)
+                        this.SetIKEnabled(this._ikTarget, b);
+                    GUI.color = c;
+
+                    GUILayout.FlexibleSpace();
+
+                    GUI.color = Color.red;
+                    if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)))
+                    {
+                        if (data != null && data.originalEnabled.hasValue)
+                        {
+                            this._ikTarget.ik.enabled = data.originalEnabled;
+                            data.originalEnabled.Reset();
+                            if (this._ikTarget.ik.enabled == false)
+                                this._ikTarget.solver.FixTransforms();
+                        }
+                    }
+                    GUI.color = c;
+                    GUILayout.EndHorizontal();
+
+                }
+
+                {
+                    bool b = this.GetIKFixTransforms(this._ikTarget);
+                    GUILayout.BeginHorizontal();
+                    if (data != null && data.originalFixTransforms.hasValue)
+                        GUI.color = Color.magenta;
+                    b = GUILayout.Toggle(b, "Fix Transforms", GUILayout.ExpandWidth(false));
+                    if (b != this._ikTarget.ik.fixTransforms)
+                        this.SetIKFixTransforms(this._ikTarget, b);
+                    GUI.color = c;
+
+                    GUILayout.FlexibleSpace();
+
+                    GUI.color = Color.red;
+                    if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)))
+                    {
+                        if (data != null && data.originalFixTransforms.hasValue)
+                        {
+                            this._ikTarget.ik.fixTransforms = data.originalFixTransforms;
+                            data.originalFixTransforms.Reset();
+                        }
+                    }
+                    GUI.color = c;
+                    GUILayout.EndHorizontal();
+
+                }
+
+
+                {
+                    if (data != null && data.originalWeight.hasValue)
+                        GUI.color = Color.magenta;
+                    float v = this._ikTarget.solver.GetIKPositionWeight();
+                    v = this.FloatEditor(v, 0f, 1f, "Pos Weight\t", "0.0000", onReset: (value) =>
+                    {
+                        if (data != null && data.originalWeight.hasValue)
+                        {
+                            this._ikTarget.solver.SetIKPositionWeight(data.originalWeight);
+                            data.originalWeight.Reset();
+                            return this._ikTarget.solver.GetIKPositionWeight();
+                        }
+                        return value;
+                    });
+                    GUI.color = c;
+                    if (!Mathf.Approximately(this._ikTarget.solver.GetIKPositionWeight(), v))
+                        this.SetIKPositionWeight(this._ikTarget, v);
+                }
+
+                switch (this._ikTarget.type)
+                {
+                    case IKType.FABRIK:
+                        this.FABRIKFields(this._ikTarget, data);
+                        break;
+                    case IKType.FABRIKRoot:
+                        this.FABRIKRootFields(this._ikTarget, data);
+                        break;
+                    case IKType.CCDIK:
+                        this.CCDIKFields(this._ikTarget, data);
+                        break;
+                    case IKType.AimIK:
+                        this.AimIKFields(this._ikTarget, data);
+                        break;
+                    case IKType.FullBodyBipedIK:
+                        this.FullBodyBipedIKFields(this._ikTarget, data);
+                        break;
+                    case IKType.LimbIK:
+                        this.LimbIKFields(this._ikTarget, data);
+                        break;
+                }
+
             }
             GUILayout.EndScrollView();
 
             GUILayout.BeginHorizontal();
-
-            if (this._isCharacter == false && GUILayout.Button("Copy to FK", GUILayout.ExpandWidth(false)))
-                this.CopyToFK();
-
             GUI.color = Color.red;
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)))
-                this.SetNotDirty();
+            if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && this._ikTarget != null)
+                this.SetIKNotDirty(this._ikTarget);
             GUI.color = c;
             GUILayout.EndHorizontal();
 
             GUILayout.EndVertical();
+
+            GUILayout.EndHorizontal();
         }
+
+        public override void UpdateGizmos()
+        {
+            if (this._updateAction != null)
+            {
+                this._updateAction();
+                this._updateAction = null;
+            }
+        }
+
 
         public override void OnDestroy()
         {
             base.OnDestroy();
-            if (this._ik != null && this._ik.type == IKType.FullBodyBipedIK)
+            if (this._registered)
                 this._parent.onLateUpdate -= this.LateUpdate;
+            this._parent.onUpdate -= this.Update;
         }
         #endregion
 
         #region Public Methods
         public void LoadFrom(IKEditor other)
         {
-            if (this._ik == null)
-                return;
             MainWindow._self.ExecuteDelayed(() =>
             {
-                if (this._ik.type != other._ik.type || this._ik.type == IKType.Unknown)
-                    return;
-
-                if (other._ikData.originalEnabled.hasValue)
-                    this._ik.ik.enabled = other._ik.ik.enabled;
-                if (other._ikData.originalWeight.hasValue)
-                    this._ik.solver.SetIKPositionWeight(other._ik.solver.GetIKPositionWeight());
-
-                switch (this._ik.type)
+                foreach (KeyValuePair<IKWrapper, IKData> otherPair in other._dirtyIks)
                 {
-                    case IKType.FABRIK:
-                        {
-                            IKSolverFABRIK otherSolver = (IKSolverFABRIK)other._ik.solver;
-                            FABRIKData otherData = (FABRIKData)other._ikData;
-                            IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-                            if (otherData.originalTolerance.hasValue)
-                                solver.tolerance = otherSolver.tolerance;
-                            if (otherData.originalMaxIterations.hasValue)
-                                solver.maxIterations = otherSolver.maxIterations;
-                            this._ikData = new FABRIKData(otherData);
-                            break;
-                        }
-                    case IKType.FABRIKRoot:
-                        {
-                            IKSolverFABRIKRoot otherSolver = (IKSolverFABRIKRoot)other._ik.solver;
-                            FABRIKRootData otherData = (FABRIKRootData)other._ikData;
-                            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-                            if (otherData.originalRootPin.hasValue)
-                                solver.rootPin = otherSolver.rootPin;
-                            if (otherData.originalIterations.hasValue)
-                                solver.iterations = otherSolver.iterations;
-                            this._ikData = new FABRIKRootData(otherData);
-                            break;
-                        }
-                    case IKType.AimIK:
-                        {
-                            IKSolverAim otherSolver = (IKSolverAim)other._ik.solver;
-                            AimIKData otherData = (AimIKData)other._ikData;
-                            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-                            if (otherData.originalTolerance.hasValue)
-                                solver.tolerance = otherSolver.tolerance;
-                            if (otherData.originalMaxIterations.hasValue)
-                                solver.maxIterations = otherSolver.maxIterations;
-                            if (otherData.originalAxis.hasValue)
-                                solver.axis = otherSolver.axis;
-                            if (otherData.originalClampWeight.hasValue)
-                                solver.clampWeight = otherSolver.clampWeight;
-                            if (otherData.originalClampSmoothing.hasValue)
-                                solver.clampSmoothing = otherSolver.clampSmoothing;
-                            if (otherData.originalPoleAxis.hasValue)
-                                solver.poleAxis = otherSolver.poleAxis;
-                            if (otherData.originalPolePosition.hasValue)
-                                solver.polePosition = otherSolver.polePosition;
-                            if (otherData.originalPoleWeight.hasValue)
-                                solver.poleWeight = otherSolver.poleWeight;
-                            this._ikData = new AimIKData(otherData);
-                            break;
-                        }
-                    case IKType.CCDIK:
-                        {
-                            IKSolverCCD otherSolver = (IKSolverCCD)other._ik.solver;
-                            CCDIKData otherData = (CCDIKData)other._ikData;
-                            IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-                            if (otherData.originalTolerance.hasValue)
-                                solver.tolerance = otherSolver.tolerance;
-                            if (otherData.originalMaxIterations.hasValue)
-                                solver.maxIterations = otherSolver.maxIterations;
-                            this._ikData = new CCDIKData(otherData);
-                            break;
-                        }
-                    case IKType.FullBodyBipedIK:
-                        {
-                            //IKSolverFullBodyBiped otherSolver = (IKSolverFullBodyBiped)other._ik.solver;
-                            FullBodyBipedIKData otherData = (FullBodyBipedIKData)other._ikData;
-                            //IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)this._ik.solver;
-                            this._ikData = new FullBodyBipedIKData(otherData);
-                            break;
-                        }
+                    Transform t = this._parent.transform.Find(otherPair.Key.solver.GetRoot().GetPathFrom(other._parent.transform));
+                    IKWrapper ik = this._iks.FirstOrDefault(i => i.Value.solver.GetRoot() == t && this._dirtyIks.ContainsKey(i.Value) == false).Value;
+                    if (ik == null || ik.type != otherPair.Key.type || ik.type == IKType.Unknown)
+                        continue;
+
+                    if (otherPair.Value.originalEnabled.hasValue)
+                        ik.ik.enabled = otherPair.Key.ik.enabled;
+                    if (otherPair.Value.originalWeight.hasValue)
+                        ik.solver.SetIKPositionWeight(otherPair.Key.solver.GetIKPositionWeight());
+
+                    IKData ikData = null;
+                    switch (ik.type)
+                    {
+                        case IKType.FABRIK:
+                            {
+                                IKSolverFABRIK otherSolver = (IKSolverFABRIK)otherPair.Key.solver;
+                                FABRIKData otherData = (FABRIKData)otherPair.Value;
+                                IKSolverFABRIK solver = (IKSolverFABRIK)ik.solver;
+                                if (otherData.originalTolerance.hasValue)
+                                    solver.tolerance = otherSolver.tolerance;
+                                if (otherData.originalMaxIterations.hasValue)
+                                    solver.maxIterations = otherSolver.maxIterations;
+                                ikData = new FABRIKData(otherData);
+                                break;
+                            }
+                        case IKType.FABRIKRoot:
+                            {
+                                IKSolverFABRIKRoot otherSolver = (IKSolverFABRIKRoot)otherPair.Key.solver;
+                                FABRIKRootData otherData = (FABRIKRootData)otherPair.Value;
+                                IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)ik.solver;
+                                if (otherData.originalRootPin.hasValue)
+                                    solver.rootPin = otherSolver.rootPin;
+                                if (otherData.originalIterations.hasValue)
+                                    solver.iterations = otherSolver.iterations;
+                                ikData = new FABRIKRootData(otherData);
+                                break;
+                            }
+                        case IKType.AimIK:
+                            {
+                                IKSolverAim otherSolver = (IKSolverAim)otherPair.Key.solver;
+                                AimIKData otherData = (AimIKData)otherPair.Value;
+                                IKSolverAim solver = (IKSolverAim)ik.solver;
+                                if (otherData.originalTolerance.hasValue)
+                                    solver.tolerance = otherSolver.tolerance;
+                                if (otherData.originalMaxIterations.hasValue)
+                                    solver.maxIterations = otherSolver.maxIterations;
+                                if (otherData.originalAxis.hasValue)
+                                    solver.axis = otherSolver.axis;
+                                if (otherData.originalClampWeight.hasValue)
+                                    solver.clampWeight = otherSolver.clampWeight;
+                                if (otherData.originalClampSmoothing.hasValue)
+                                    solver.clampSmoothing = otherSolver.clampSmoothing;
+                                if (otherData.originalPoleAxis.hasValue)
+                                    solver.poleAxis = otherSolver.poleAxis;
+                                if (otherData.originalPolePosition.hasValue)
+                                    solver.polePosition = otherSolver.polePosition;
+                                if (otherData.originalPoleWeight.hasValue)
+                                    solver.poleWeight = otherSolver.poleWeight;
+                                ikData = new AimIKData(otherData);
+                                break;
+                            }
+                        case IKType.CCDIK:
+                            {
+                                IKSolverCCD otherSolver = (IKSolverCCD)otherPair.Key.solver;
+                                CCDIKData otherData = (CCDIKData)otherPair.Value;
+                                IKSolverCCD solver = (IKSolverCCD)ik.solver;
+                                if (otherData.originalTolerance.hasValue)
+                                    solver.tolerance = otherSolver.tolerance;
+                                if (otherData.originalMaxIterations.hasValue)
+                                    solver.maxIterations = otherSolver.maxIterations;
+                                ikData = new CCDIKData(otherData);
+                                break;
+                            }
+                        case IKType.FullBodyBipedIK:
+                            {
+                                //IKSolverFullBodyBiped otherSolver = (IKSolverFullBodyBiped)otherPair.Key.solver;
+                                FullBodyBipedIKData otherData = (FullBodyBipedIKData)otherPair.Value;
+                                //IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)ik.solver;
+                                ikData = new FullBodyBipedIKData(otherData);
+                                break;
+                            }
+                        case IKType.LimbIK:
+                            {
+                                IKSolverLimb otherSolver = (IKSolverLimb)otherPair.Key.solver;
+                                LimbIKData otherData = (LimbIKData)otherPair.Value;
+                                IKSolverLimb solver = (IKSolverLimb)ik.solver;
+                                if (otherData.originalRotationWeight.hasValue)
+                                    solver.IKRotationWeight = otherSolver.IKRotationWeight;
+                                if (otherData.originalBendModifierWeight.hasValue)
+                                    solver.bendModifierWeight = otherSolver.bendModifierWeight;
+                                ikData = new LimbIKData(otherData);
+                                break;
+                            }
+                    }
+                    this._dirtyIks.Add(ik, ikData);
                 }
 
             }, 2);
@@ -485,19 +597,20 @@ namespace HSPE.AMModules
         #endregion
 
         #region Private Methods
-        private void FABRIKFields()
+
+        private void FABRIKFields(IKWrapper target, IKData d)
         {
-            IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-            FABRIKData data = (FABRIKData)this._ikData;
+            IKSolverFABRIK solver = (IKSolverFABRIK)target.solver;
+            FABRIKData data = d as FABRIKData;
             Color c = GUI.color;
 
             {
-                if (data.originalTolerance.hasValue)
+                if (data != null && data.originalTolerance.hasValue)
                     GUI.color = Color.magenta;
-                float v = solver.tolerance;
+                float v = this.GetFABRIKTolerance(target);
                 v = this.FloatEditor(v, 0f, 1f, "Tolerance\t\t", "0.0000", onReset: (value) =>
                 {
-                    if (data.originalTolerance.hasValue)
+                    if (data != null && data.originalTolerance.hasValue)
                     {
                         solver.tolerance = data.originalTolerance;
                         data.originalTolerance.Reset();
@@ -507,16 +620,16 @@ namespace HSPE.AMModules
                 });
                 GUI.color = c;
                 if (!Mathf.Approximately(solver.tolerance, v))
-                    this.SetFABRIKTolerance(v);
+                    this.SetFABRIKTolerance(target, v);
             }
 
             {
-                if (data.originalMaxIterations.hasValue)
+                if (data != null && data.originalMaxIterations.hasValue)
                     GUI.color = Color.magenta;
-                int v = solver.maxIterations;
+                int v = this.GetFABRIKMaxIterations(target);
                 v = Mathf.RoundToInt(this.FloatEditor(v, 0f, 100f, "Max iterations\t", "0", onReset: (value) =>
                 {
-                    if (data.originalMaxIterations.hasValue)
+                    if (data != null && data.originalMaxIterations.hasValue)
                     {
                         solver.maxIterations = data.originalMaxIterations;
                         data.originalMaxIterations.Reset();
@@ -526,23 +639,23 @@ namespace HSPE.AMModules
                 }));
                 GUI.color = c;
                 if (v != solver.maxIterations)
-                    this.SetFABRIKMaxIterations(v);
+                    this.SetFABRIKMaxIterations(target, v);
             }
         }
 
-        private void FABRIKRootFields()
+        private void FABRIKRootFields(IKWrapper target, IKData d)
         {
-            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-            FABRIKRootData data = (FABRIKRootData)this._ikData;
+            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)target.solver;
+            FABRIKRootData data = d as FABRIKRootData;
             Color c = GUI.color;
 
             {
-                if (data.originalRootPin.hasValue)
+                if (data != null && data.originalRootPin.hasValue)
                     GUI.color = Color.magenta;
-                float v = solver.rootPin;
+                float v = this.GetFABRIKRootRootPin(target);
                 v = this.FloatEditor(v, 0f, 1f, "Tolerance\t\t", "0.0000", onReset: (value) =>
                 {
-                    if (data.originalRootPin.hasValue)
+                    if (data != null && data.originalRootPin.hasValue)
                     {
                         solver.rootPin = data.originalRootPin;
                         data.originalRootPin.Reset();
@@ -552,16 +665,16 @@ namespace HSPE.AMModules
                 });
                 GUI.color = c;
                 if (!Mathf.Approximately(solver.rootPin, v))
-                    this.SetFABRIKRootRootPin(v);
+                    this.SetFABRIKRootRootPin(target, v);
             }
 
             {
-                if (data.originalIterations.hasValue)
+                if (data != null && data.originalIterations.hasValue)
                     GUI.color = Color.magenta;
-                int v = solver.iterations;
+                int v = this.GetFABRIKRootIterations(target);
                 v = Mathf.RoundToInt(this.FloatEditor(v, 0f, 100f, "Max iterations\t", "0", onReset: (value) =>
                 {
-                    if (data.originalIterations.hasValue)
+                    if (data != null && data.originalIterations.hasValue)
                     {
                         solver.iterations = data.originalIterations;
                         data.originalIterations.Reset();
@@ -571,23 +684,23 @@ namespace HSPE.AMModules
                 }));
                 GUI.color = c;
                 if (v != solver.iterations)
-                    this.SetFABRIKRootIterations(v);
+                    this.SetFABRIKRootIterations(target, v);
             }
         }
 
-        private void CCDIKFields()
+        private void CCDIKFields(IKWrapper target, IKData d)
         {
-            IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-            CCDIKData data = (CCDIKData)this._ikData;
+            IKSolverCCD solver = (IKSolverCCD)target.solver;
+            CCDIKData data = d as CCDIKData;
             Color c = GUI.color;
 
             {
-                if (data.originalTolerance.hasValue)
+                if (data != null && data.originalTolerance.hasValue)
                     GUI.color = Color.magenta;
-                float v = solver.tolerance;
+                float v = this.GetCCDIKTolerance(target);
                 v = this.FloatEditor(v, 0f, 1f, "Tolerance\t\t", "0.0000", onReset: (value) =>
                 {
-                    if (data.originalTolerance.hasValue)
+                    if (data != null && data.originalTolerance.hasValue)
                     {
                         solver.tolerance = data.originalTolerance;
                         data.originalTolerance.Reset();
@@ -597,16 +710,16 @@ namespace HSPE.AMModules
                 });
                 GUI.color = c;
                 if (!Mathf.Approximately(solver.tolerance, v))
-                    this.SetCCDIKTolerance(v);
+                    this.SetCCDIKTolerance(target, v);
             }
 
             {
-                if (data.originalMaxIterations.hasValue)
+                if (data != null && data.originalMaxIterations.hasValue)
                     GUI.color = Color.magenta;
-                int v = solver.maxIterations;
+                int v = this.GetCCDIKMaxIterations(target);
                 v = Mathf.RoundToInt(this.FloatEditor(v, 0f, 100f, "Max iterations\t", "0", onReset: (value) =>
                 {
-                    if (data.originalMaxIterations.hasValue)
+                    if (data != null && data.originalMaxIterations.hasValue)
                     {
                         solver.maxIterations = data.originalMaxIterations;
                         data.originalMaxIterations.Reset();
@@ -616,23 +729,23 @@ namespace HSPE.AMModules
                 }));
                 GUI.color = c;
                 if (v != solver.maxIterations)
-                    this.SetCCDIKMaxIterations(v);
+                    this.SetCCDIKMaxIterations(target, v);
             }
         }
 
-        private void AimIKFields()
+        private void AimIKFields(IKWrapper target, IKData d)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)target.solver;
+            AimIKData data = d as AimIKData;
             Color c = GUI.color;
 
             {
-                if (data.originalTolerance.hasValue)
+                if (data != null && data.originalTolerance.hasValue)
                     GUI.color = Color.magenta;
-                float v = solver.tolerance;
+                float v = this.GetAimIKTolerance(target);
                 v = this.FloatEditor(v, 0f, 1f, "Tolerance\t\t", "0.0000", onReset: (value) =>
                 {
-                    if (data.originalTolerance.hasValue)
+                    if (data != null && data.originalTolerance.hasValue)
                     {
                         solver.tolerance = data.originalTolerance;
                         data.originalTolerance.Reset();
@@ -642,16 +755,16 @@ namespace HSPE.AMModules
                 });
                 GUI.color = c;
                 if (!Mathf.Approximately(solver.tolerance, v))
-                    this.SetAimIKTolerance(v);
+                    this.SetAimIKTolerance(target, v);
             }
 
             {
-                if (data.originalMaxIterations.hasValue)
+                if (data != null && data.originalMaxIterations.hasValue)
                     GUI.color = Color.magenta;
-                int v = solver.maxIterations;
+                int v = this.GetAimIKMaxIterations(target);
                 v = Mathf.RoundToInt(this.FloatEditor(v, 0f, 100f, "Max iterations\t", "0", onReset: (value) =>
                 {
-                    if (data.originalMaxIterations.hasValue)
+                    if (data != null && data.originalMaxIterations.hasValue)
                     {
                         solver.maxIterations = data.originalMaxIterations;
                         data.originalMaxIterations.Reset();
@@ -661,25 +774,25 @@ namespace HSPE.AMModules
                 }));
                 GUI.color = c;
                 if (v != solver.maxIterations)
-                    this.SetAimIKMaxIterations(v);
+                    this.SetAimIKMaxIterations(target, v);
             }
 
             {
                 GUILayout.BeginVertical();
-                if (data.originalAxis.hasValue)
+                if (data != null && data.originalAxis.hasValue)
                     GUI.color = Color.magenta;
                 GUILayout.Label("Axis");
                 GUILayout.BeginHorizontal();
-                Vector3 v = this.Vector3Editor(solver.axis);
+                Vector3 v = this.Vector3Editor(this.GetAimIKAxis(target));
                 if (v != solver.axis)
-                    this.SetAimIKAxis(v);
+                    this.SetAimIKAxis(target, v);
                 GUI.color = c;
                 this.IncEditor();
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 GUI.color = Color.red;
-                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && data.originalAxis.hasValue)
+                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && data != null && data.originalAxis.hasValue)
                 {
                     solver.axis = data.originalAxis;
                     data.originalAxis.Reset();
@@ -691,12 +804,12 @@ namespace HSPE.AMModules
             }
 
             {
-                if (data.originalClampWeight.hasValue)
+                if (data != null && data.originalClampWeight.hasValue)
                     GUI.color = Color.magenta;
-                float v = solver.clampWeight;
+                float v = this.GetAimIKClampWeight(target);
                 v = this.FloatEditor(v, 0f, 1f, "Clamp Weight\t", "0.0000", onReset: (value) =>
                 {
-                    if (data.originalClampWeight.hasValue)
+                    if (data != null && data.originalClampWeight.hasValue)
                     {
                         solver.clampWeight = data.originalClampWeight;
                         data.originalClampWeight.Reset();
@@ -706,13 +819,13 @@ namespace HSPE.AMModules
                 });
                 GUI.color = c;
                 if (!Mathf.Approximately(solver.clampWeight, v))
-                    this.SetAimIKClampWeight(v);
+                    this.SetAimIKClampWeight(target, v);
             }
 
             {
-                if (data.originalClampSmoothing.hasValue)
+                if (data != null && data.originalClampSmoothing.hasValue)
                     GUI.color = Color.magenta;
-                int v = solver.clampSmoothing;
+                int v = this.GetAimIKClampSmoothing(target);
                 v = Mathf.RoundToInt(this.FloatEditor(v, 0f, 2f, "Clamp Smoothing\t", "0", onReset: (value) =>
                 {
                     if (data.originalClampSmoothing.hasValue)
@@ -725,25 +838,25 @@ namespace HSPE.AMModules
                 }));
                 GUI.color = c;
                 if (solver.clampSmoothing != v)
-                    this.SetAimIKClampSmoothing(v);
+                    this.SetAimIKClampSmoothing(target, v);
             }
 
             {
                 GUILayout.BeginVertical();
-                if (data.originalPoleAxis.hasValue)
+                if (data != null && data.originalPoleAxis.hasValue)
                     GUI.color = Color.magenta;
                 GUILayout.Label("Pole Axis");
                 GUILayout.BeginHorizontal();
-                Vector3 v = this.Vector3Editor(solver.poleAxis);
+                Vector3 v = this.Vector3Editor(this.GetAimIKPoleAxis(target));
                 if (v != solver.poleAxis)
-                    this.SetAimIKPoleAxis(v);
+                    this.SetAimIKPoleAxis(target, v);
                 GUI.color = c;
                 this.IncEditor();
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 GUI.color = Color.red;
-                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && data.originalPoleAxis.hasValue)
+                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && data != null && data.originalPoleAxis.hasValue)
                 {
                     solver.poleAxis = data.originalPoleAxis;
                     data.originalPoleAxis.Reset();
@@ -757,21 +870,21 @@ namespace HSPE.AMModules
             if (solver.poleTarget == null)
             {
                 GUILayout.BeginVertical();
-                if (data.originalPolePosition.hasValue)
+                if (data != null && data.originalPolePosition.hasValue)
                     GUI.color = Color.magenta;
                 GUILayout.Label("Pole Position");
 
                 GUILayout.BeginHorizontal();
-                Vector3 v = this.Vector3Editor(solver.polePosition);
+                Vector3 v = this.Vector3Editor(this.GetAimIKPolePosition(target));
                 if (v != solver.polePosition)
-                    this.SetAimIKPolePosition(v);
+                    this.SetAimIKPolePosition(target, v);
                 GUI.color = c;
                 this.IncEditor();
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 GUI.color = Color.red;
-                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && data.originalPolePosition.hasValue)
+                if (GUILayout.Button("Reset", GUILayout.ExpandWidth(false)) && data != null && data.originalPolePosition.hasValue)
                 {
                     solver.polePosition = data.originalPolePosition;
                     data.originalPolePosition.Reset();
@@ -783,12 +896,12 @@ namespace HSPE.AMModules
             }
 
             {
-                if (data.originalPoleWeight.hasValue)
+                if (data != null && data.originalPoleWeight.hasValue)
                     GUI.color = Color.magenta;
-                float v = solver.poleWeight;
+                float v = this.GetAimIKPoleWeight(target);
                 v = this.FloatEditor(v, 0f, 1f, "Pole Weight\t", "0.0000", onReset: (value) =>
                 {
-                    if (data.originalPoleWeight.hasValue)
+                    if (data != null && data.originalPoleWeight.hasValue)
                     {
                         solver.poleWeight = data.originalPoleWeight;
                         data.originalPoleWeight.Reset();
@@ -798,44 +911,44 @@ namespace HSPE.AMModules
                 });
                 GUI.color = c;
                 if (!Mathf.Approximately(solver.poleWeight, v))
-                    this.SetAimIKPoleWeight(v);
+                    this.SetAimIKPoleWeight(target, v);
             }
         }
 
-        private void FullBodyBipedIKFields()
+        private void FullBodyBipedIKFields(IKWrapper target, IKData d)
         {
-            IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)this._ik.solver;
-            FullBodyBipedIKData data = (FullBodyBipedIKData)this._ikData;
+            IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)target.solver;
+            FullBodyBipedIKData data = d as FullBodyBipedIKData;
             GUILayout.BeginHorizontal();
-            this.DisplayEffectorFields("Right shoulder", solver.rightShoulderEffector, data.rightShoulder, true, false);
-            this.DisplayEffectorFields("Left shoulder", solver.leftShoulderEffector, data.leftShoulder, true, false);
+            this.DisplayEffectorFields("Right shoulder", solver.rightShoulderEffector, data?.rightShoulder, true, false);
+            this.DisplayEffectorFields("Left shoulder", solver.leftShoulderEffector, data?.leftShoulder, true, false);
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            this.DisplayConstraintBendFields(solver.rightArmChain.bendConstraint, data.rightArm);
-            this.DisplayConstraintBendFields(solver.leftArmChain.bendConstraint, data.leftArm);
+            this.DisplayConstraintBendFields(solver.rightArmChain.bendConstraint, data?.rightArm);
+            this.DisplayConstraintBendFields(solver.leftArmChain.bendConstraint, data?.leftArm);
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            this.DisplayEffectorFields("Right hand", solver.rightHandEffector, data.rightHand);
-            this.DisplayEffectorFields("Left hand", solver.leftHandEffector, data.leftHand);
+            this.DisplayEffectorFields("Right hand", solver.rightHandEffector, data?.rightHand);
+            this.DisplayEffectorFields("Left hand", solver.leftHandEffector, data?.leftHand);
             GUILayout.EndHorizontal();
 
-            this.DisplayEffectorFields("Body", solver.bodyEffector, data.body, true, false);
+            this.DisplayEffectorFields("Body", solver.bodyEffector, data?.body, true, false);
 
             GUILayout.BeginHorizontal();
-            this.DisplayEffectorFields("Right thigh", solver.rightThighEffector, data.rightThigh, true, false);
-            this.DisplayEffectorFields("Left thigh", solver.leftThighEffector, data.leftThigh, true, false);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
-            this.DisplayConstraintBendFields(solver.rightLegChain.bendConstraint, data.rightLeg);
-            this.DisplayConstraintBendFields(solver.leftLegChain.bendConstraint, data.leftLeg);
+            this.DisplayEffectorFields("Right thigh", solver.rightThighEffector, data?.rightThigh, true, false);
+            this.DisplayEffectorFields("Left thigh", solver.leftThighEffector, data?.leftThigh, true, false);
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            this.DisplayEffectorFields("Right foot", solver.rightFootEffector, data.rightFoot);
-            this.DisplayEffectorFields("Left foot", solver.leftFootEffector, data.leftFoot);
+            this.DisplayConstraintBendFields(solver.rightLegChain.bendConstraint, data?.rightLeg);
+            this.DisplayConstraintBendFields(solver.leftLegChain.bendConstraint, data?.leftLeg);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            this.DisplayEffectorFields("Right foot", solver.rightFootEffector, data?.rightFoot);
+            this.DisplayEffectorFields("Left foot", solver.leftFootEffector, data?.leftFoot);
             GUILayout.EndHorizontal();
         }
 
@@ -852,11 +965,11 @@ namespace HSPE.AMModules
             Color c = GUI.color;
             if (showPos)
             {
-                if (data.originalPositionWeight.hasValue)
+                if (data != null && data.originalPositionWeight.hasValue)
                     GUI.color = Color.magenta;
-                float newWeight = this.FloatEditor(effector.positionWeight, 0f, 1f, "Pos weight", onReset: value =>
+                float newWeight = this.FloatEditor(this.GetEffectorPositionWeight(effector), 0f, 1f, "Pos weight", onReset: value =>
                 {
-                    if (data.originalPositionWeight.hasValue)
+                    if (data != null && data.originalPositionWeight.hasValue)
                     {
                         effector.positionWeight = data.originalPositionWeight;
                         data.originalPositionWeight.Reset();
@@ -870,11 +983,11 @@ namespace HSPE.AMModules
             }
             if (showRot)
             {
-                if (data.originalRotationWeight.hasValue)
+                if (data != null && data.originalRotationWeight.hasValue)
                     GUI.color = Color.magenta;
-                float newWeight = this.FloatEditor(effector.rotationWeight, 0f, 1f, "Rot weight", onReset: value =>
+                float newWeight = this.FloatEditor(this.GetEffectorRotationWeight(effector), 0f, 1f, "Rot weight", onReset: value =>
                 {
-                    if (data.originalRotationWeight.hasValue)
+                    if (data != null && data.originalRotationWeight.hasValue)
                     {
                         effector.rotationWeight = data.originalRotationWeight;
                         data.originalRotationWeight.Reset();
@@ -892,11 +1005,11 @@ namespace HSPE.AMModules
         private void DisplayConstraintBendFields(IKConstraintBend constraint, FullBodyBipedIKData.ConstraintBendData data)
         {
             Color c = GUI.color;
-            if (data.originalWeight.hasValue)
+            if (data != null && data.originalWeight.hasValue)
                 GUI.color = Color.magenta;
-            float newWeight = this.FloatEditor(constraint.weight, 0f, 1f, "Bend Weight", onReset: value =>
+            float newWeight = this.FloatEditor(this.GetConstraintBendWeight(constraint), 0f, 1f, "Bend Weight", onReset: value =>
             {
-                if (data.originalWeight.hasValue)
+                if (data != null && data.originalWeight.hasValue)
                 {
                     constraint.weight = data.originalWeight;
                     data.originalWeight.Reset();
@@ -909,223 +1022,318 @@ namespace HSPE.AMModules
                 this.SetConstraintBendWeight(newWeight, constraint, data);
         }
 
-        private bool GetIKEnabled()
+        private void LimbIKFields(IKWrapper target, IKData d)
         {
-            return this._ik.ik.enabled;
+            IKSolverLimb solver = (IKSolverLimb)target.solver;
+            LimbIKData data = d as LimbIKData;
+            Color c = GUI.color;
+
+
+            {
+                if (data != null && data.originalRotationWeight.hasValue)
+                    GUI.color = Color.magenta;
+                float v = this.GetLimbIKRotationWeight(target);
+                v = this.FloatEditor(v, 0f, 1f, "Rot Weight\t", "0.0000", onReset: (value) =>
+                {
+                    if (data != null && data.originalRotationWeight.hasValue)
+                    {
+                        solver.SetIKRotationWeight(data.originalRotationWeight);
+                        data.originalRotationWeight.Reset();
+                        return solver.GetIKRotationWeight();
+                    }
+                    return value;
+                });
+                GUI.color = c;
+                if (!Mathf.Approximately(solver.GetIKRotationWeight(), v))
+                    this.SetLimbIKRotationWeight(target, v);
+            }
+
+            {
+                if (data != null && data.originalBendModifierWeight.hasValue)
+                    GUI.color = Color.magenta;
+                float v = this.GetLimbIKBendModifierWeight(target);
+                v = this.FloatEditor(v, 0f, 1f, "Bend Weight\t", "0.0000", onReset: (value) =>
+                {
+                    if (data != null && data.originalBendModifierWeight.hasValue)
+                    {
+                        solver.bendModifierWeight = data.originalBendModifierWeight;
+                        data.originalBendModifierWeight.Reset();
+                        return solver.bendModifierWeight;
+                    }
+                    return value;
+                });
+                GUI.color = c;
+                if (!Mathf.Approximately(solver.bendModifierWeight, v))
+                    this.SetLimbIKBendModifierWeight(target, v);
+            }
+
         }
 
-        private void SetIKEnabled(bool b)
+        private IKData SetIKDirty(IKWrapper ik)
         {
-            if (this._ikData.originalEnabled.hasValue == false)
-                this._ikData.originalEnabled = this._ik.ik.enabled;
-            this._ik.ik.enabled = b;
-            if (this._ik.ik.enabled == false)
-                this._ik.solver.FixTransforms();
+            IKData data;
+            if (this._dirtyIks.TryGetValue(ik, out data) == false)
+            {
+                switch (ik.type)
+                {
+                    case IKType.FABRIK:
+                        data = new FABRIKData();
+                        break;
+                    case IKType.FABRIKRoot:
+                        data = new FABRIKRootData();
+                        break;
+                    case IKType.AimIK:
+                        data = new AimIKData();
+                        break;
+                    case IKType.CCDIK:
+                        data = new CCDIKData();
+                        break;
+                    case IKType.FullBodyBipedIK:
+                        data = new FullBodyBipedIKData();
+                        break;
+                    case IKType.LimbIK:
+                        data = new LimbIKData();
+                        break;
+                    default:
+                        return null;
+                }
+                this._dirtyIks.Add(ik, data);
+            }
+            return data;
         }
 
-        private float GetIKPositionWeight()
+        private bool GetIKEnabled(IKWrapper ik)
         {
-            return this._ik.solver.GetIKPositionWeight();
+            return ik.ik.enabled;
         }
 
-        private void SetIKPositionWeight(float v)
+        private void SetIKEnabled(IKWrapper ik, bool b)
         {
-            if (this._ikData.originalWeight.hasValue == false)
-                this._ikData.originalWeight = this._ik.solver.GetIKPositionWeight();
-            this._ik.solver.SetIKPositionWeight(v);
+            IKData data = this.SetIKDirty(ik);
+            if (data.originalEnabled.hasValue == false)
+                data.originalEnabled = ik.ik.enabled;
+            ik.ik.enabled = b;
+            if (ik.ik.enabled == false)
+                ik.solver.FixTransforms();
         }
 
-        private float GetFABRIKTolerance()
+        private bool GetIKFixTransforms(IKWrapper ik)
         {
-            return ((IKSolverFABRIK)this._ik.solver).tolerance;
+            return ik.ik.fixTransforms;
         }
 
-        private void SetFABRIKTolerance(float v)
+        private void SetIKFixTransforms(IKWrapper ik, bool b)
         {
-            IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-            FABRIKData data = (FABRIKData)this._ikData;
+            IKData data = this.SetIKDirty(ik);
+            if (data.originalFixTransforms.hasValue == false)
+                data.originalFixTransforms = ik.ik.fixTransforms;
+            ik.ik.fixTransforms = b;
+        }
+
+        private float GetIKPositionWeight(IKWrapper ik)
+        {
+            return ik.solver.GetIKPositionWeight();
+        }
+
+        private void SetIKPositionWeight(IKWrapper ik, float v)
+        {
+            IKData data = this.SetIKDirty(ik);
+            if (data.originalWeight.hasValue == false)
+                data.originalWeight = ik.solver.GetIKPositionWeight();
+            ik.solver.SetIKPositionWeight(v);
+        }
+
+        private float GetFABRIKTolerance(IKWrapper ik)
+        {
+            return ((IKSolverFABRIK)ik.solver).tolerance;
+        }
+
+        private void SetFABRIKTolerance(IKWrapper ik, float v)
+        {
+            IKSolverFABRIK solver = (IKSolverFABRIK)ik.solver;
+            FABRIKData data = (FABRIKData)this.SetIKDirty(ik);
             if (data.originalTolerance.hasValue == false)
                 data.originalTolerance = solver.tolerance;
             solver.tolerance = v;
         }
 
-        private int GetFABRIKMaxIterations()
+        private int GetFABRIKMaxIterations(IKWrapper ik)
         {
-            return ((IKSolverFABRIK)this._ik.solver).maxIterations;
+            return ((IKSolverFABRIK)ik.solver).maxIterations;
         }
 
-        private void SetFABRIKMaxIterations(int v)
+        private void SetFABRIKMaxIterations(IKWrapper ik, int v)
         {
-            IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-            FABRIKData data = (FABRIKData)this._ikData;
+            IKSolverFABRIK solver = (IKSolverFABRIK)ik.solver;
+            FABRIKData data = (FABRIKData)this.SetIKDirty(ik);
             if (data.originalMaxIterations.hasValue == false)
                 data.originalMaxIterations = solver.maxIterations;
             solver.maxIterations = v;
         }
 
-        private float GetFABRIKRootRootPin()
+        private float GetFABRIKRootRootPin(IKWrapper ik)
         {
-            return ((IKSolverFABRIKRoot)this._ik.solver).rootPin;
+            return ((IKSolverFABRIKRoot)ik.solver).rootPin;
         }
 
-        private void SetFABRIKRootRootPin(float v)
+        private void SetFABRIKRootRootPin(IKWrapper ik, float v)
         {
-            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-            FABRIKRootData data = (FABRIKRootData)this._ikData;
+            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)ik.solver;
+            FABRIKRootData data = (FABRIKRootData)this.SetIKDirty(ik);
             if (data.originalRootPin.hasValue == false)
                 data.originalRootPin = solver.rootPin;
             solver.rootPin = v;
         }
 
-        private int GetFABRIKRootIterations()
+        private int GetFABRIKRootIterations(IKWrapper ik)
         {
-            return ((IKSolverFABRIKRoot)this._ik.solver).iterations;
+            return ((IKSolverFABRIKRoot)ik.solver).iterations;
         }
 
-        private void SetFABRIKRootIterations(int v)
+        private void SetFABRIKRootIterations(IKWrapper ik, int v)
         {
-            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-            FABRIKRootData data = (FABRIKRootData)this._ikData;
+            IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)ik.solver;
+            FABRIKRootData data = (FABRIKRootData)this.SetIKDirty(ik);
             if (data.originalIterations.hasValue == false)
                 data.originalIterations = solver.iterations;
             solver.iterations = v;
         }
-        
-        private float GetCCDIKTolerance()
+
+        private float GetCCDIKTolerance(IKWrapper ik)
         {
-            return ((IKSolverCCD)this._ik.solver).tolerance;
+            return ((IKSolverCCD)ik.solver).tolerance;
         }
 
-        private void SetCCDIKTolerance(float v)
+        private void SetCCDIKTolerance(IKWrapper ik, float v)
         {
-            IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-            CCDIKData data = (CCDIKData)this._ikData;
+            IKSolverCCD solver = (IKSolverCCD)ik.solver;
+            CCDIKData data = (CCDIKData)this.SetIKDirty(ik);
             if (data.originalTolerance.hasValue == false)
                 data.originalTolerance = solver.tolerance;
             solver.tolerance = v;
         }
 
-        private int GetCCDIKMaxIterations()
+        private int GetCCDIKMaxIterations(IKWrapper ik)
         {
-            return ((IKSolverCCD)this._ik.solver).maxIterations;
+            return ((IKSolverCCD)ik.solver).maxIterations;
         }
 
-        private void SetCCDIKMaxIterations(int v)
+        private void SetCCDIKMaxIterations(IKWrapper ik, int v)
         {
-            IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-            CCDIKData data = (CCDIKData)this._ikData;
+            IKSolverCCD solver = (IKSolverCCD)ik.solver;
+            CCDIKData data = (CCDIKData)this.SetIKDirty(ik);
             if (data.originalMaxIterations.hasValue == false)
                 data.originalMaxIterations = solver.maxIterations;
             solver.maxIterations = v;
         }
 
-        private float GetAimIKTolerance()
+        private float GetAimIKTolerance(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).tolerance;
+            return ((IKSolverAim)ik.solver).tolerance;
         }
 
-        private void SetAimIKTolerance(float v)
+        private void SetAimIKTolerance(IKWrapper ik, float v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalTolerance.hasValue == false)
                 data.originalTolerance = solver.tolerance;
             solver.tolerance = v;
         }
 
-        private int GetAimIKMaxIterations()
+        private int GetAimIKMaxIterations(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).maxIterations;
+            return ((IKSolverAim)ik.solver).maxIterations;
         }
 
-        private void SetAimIKMaxIterations(int v)
+        private void SetAimIKMaxIterations(IKWrapper ik, int v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalMaxIterations.hasValue == false)
                 data.originalMaxIterations = solver.maxIterations;
             solver.maxIterations = v;
         }
 
-        private Vector3 GetAimIKAxis()
+        private Vector3 GetAimIKAxis(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).axis;
+            return ((IKSolverAim)ik.solver).axis;
         }
 
-        private void SetAimIKAxis(Vector3 v)
+        private void SetAimIKAxis(IKWrapper ik, Vector3 v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalAxis.hasValue == false)
                 data.originalAxis = solver.axis;
             solver.axis = v;
         }
 
-        private float GetAimIKClampWeight()
+        private float GetAimIKClampWeight(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).clampWeight;
+            return ((IKSolverAim)ik.solver).clampWeight;
         }
 
-        private void SetAimIKClampWeight(float v)
+        private void SetAimIKClampWeight(IKWrapper ik, float v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalClampWeight.hasValue == false)
                 data.originalClampWeight = solver.clampWeight;
             solver.clampWeight = v;
         }
 
-        private int GetAimIKClampSmoothing()
+        private int GetAimIKClampSmoothing(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).clampSmoothing;
+            return ((IKSolverAim)ik.solver).clampSmoothing;
         }
 
-        private void SetAimIKClampSmoothing(int v)
+        private void SetAimIKClampSmoothing(IKWrapper ik, int v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalClampSmoothing.hasValue == false)
                 data.originalClampSmoothing = solver.clampSmoothing;
             solver.clampSmoothing = v;
         }
 
-        private Vector3 GetAimIKPoleAxis()
+        private Vector3 GetAimIKPoleAxis(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).poleAxis;
+            return ((IKSolverAim)ik.solver).poleAxis;
         }
 
-        private void SetAimIKPoleAxis(Vector3 v)
+        private void SetAimIKPoleAxis(IKWrapper ik, Vector3 v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalPoleAxis.hasValue == false)
                 data.originalPoleAxis = solver.poleAxis;
             solver.poleAxis = v;
         }
 
-        private Vector3 GetAimIKPolePosition()
+        private Vector3 GetAimIKPolePosition(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).polePosition;
+            return ((IKSolverAim)ik.solver).polePosition;
         }
 
-        private void SetAimIKPolePosition(Vector3 v)
+        private void SetAimIKPolePosition(IKWrapper ik, Vector3 v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalPolePosition.hasValue == false)
                 data.originalPolePosition = solver.polePosition;
             solver.polePosition = v;
         }
 
-        private float GetAimIKPoleWeight()
+        private float GetAimIKPoleWeight(IKWrapper ik)
         {
-            return ((IKSolverAim)this._ik.solver).poleWeight;
+            return ((IKSolverAim)ik.solver).poleWeight;
         }
 
-        private void SetAimIKPoleWeight(float v)
+        private void SetAimIKPoleWeight(IKWrapper ik, float v)
         {
-            IKSolverAim solver = (IKSolverAim)this._ik.solver;
-            AimIKData data = (AimIKData)this._ikData;
+            IKSolverAim solver = (IKSolverAim)ik.solver;
+            AimIKData data = (AimIKData)this.SetIKDirty(ik);
             if (data.originalPoleWeight.hasValue == false)
                 data.originalPoleWeight = solver.poleWeight;
             solver.poleWeight = v;
@@ -1167,27 +1375,130 @@ namespace HSPE.AMModules
             data.currentWeight = newWeight;
         }
 
-        private void CopyToFK()
+        private float GetLimbIKRotationWeight(IKWrapper ik)
         {
-            List<GuideCommand.EqualsInfo> infos = new List<GuideCommand.EqualsInfo>();
+            return ((IKSolverLimb)ik.solver).GetIKRotationWeight();
+        }
+
+        private void SetLimbIKRotationWeight(IKWrapper ik, float v)
+        {
+            IKSolverLimb solver = (IKSolverLimb)ik.solver;
+            LimbIKData data = (LimbIKData)this.SetIKDirty(ik);
+            if (data.originalRotationWeight.hasValue == false)
+                data.originalRotationWeight = solver.GetIKRotationWeight();
+            solver.SetIKRotationWeight(v);
+        }
+
+        private float GetLimbIKBendModifierWeight(IKWrapper ik)
+        {
+            return ((IKSolverLimb)ik.solver).bendModifierWeight;
+        }
+
+        private void SetLimbIKBendModifierWeight(IKWrapper ik, float v)
+        {
+            IKSolverLimb solver = (IKSolverLimb)ik.solver;
+            LimbIKData data = (LimbIKData)this.SetIKDirty(ik);
+            if (data.originalBendModifierWeight.hasValue == false)
+                data.originalBendModifierWeight = solver.bendModifierWeight;
+            solver.bendModifierWeight = v;
+        }
+
+        private void RefreshIKList()
+        {
+            IK[] iks = this._parent.GetComponentsInChildren<IK>(true);
+            List<IK> toDelete = null;
+            foreach (KeyValuePair<IK, IKWrapper> pair in this._iks)
             {
-                foreach (IKSolver.Point point in this._ik.solver.GetPoints())
+                if (iks.Contains(pair.Key) == false)
                 {
-                    OCIChar.BoneInfo boneInfo;
-                    if (this._target.fkObjects.TryGetValue(point.transform.gameObject, out boneInfo))
-                    {
-                        Vector3 oldValue = boneInfo.guideObject.changeAmount.rot;
-                        boneInfo.guideObject.changeAmount.rot = point.transform.localEulerAngles;
-                        infos.Add(new GuideCommand.EqualsInfo()
-                        {
-                            dicKey = boneInfo.guideObject.dicKey,
-                            oldValue = oldValue,
-                            newValue = boneInfo.guideObject.changeAmount.rot
-                        });
-                    }
+                    if (toDelete == null)
+                        toDelete = new List<IK>();
+                    toDelete.Add(pair.Key);
                 }
             }
-            UndoRedoManager.Instance.Push(new GuideCommand.RotationEqualsCommand(infos.ToArray()));
+            if (toDelete != null)
+            {
+                foreach (IK ik in toDelete)
+                    this._iks.Remove(ik);
+            }
+            List<IKWrapper> toAdd = null;
+            foreach (IK ik in iks)
+            {
+                if (this._iks.ContainsKey(ik) == false && this._parent._childObjects.All(child => ik.transform.IsChildOf(child.transform) == false))
+                {
+                    if (toAdd == null)
+                        toAdd = new List<IKWrapper>();
+                    IKWrapper wrapper = new IKWrapper(ik);
+                    if (wrapper.type != IKType.Unknown)
+                        toAdd.Add(wrapper);
+                }
+            }
+            if (toAdd != null)
+            {
+                foreach (IKWrapper ik in toAdd)
+                    this._iks.Add(ik.ik, ik);
+            }
+            if (this._iks.Count != 0 && this._ikTarget == null)
+                this._ikTarget = this._iks.FirstOrDefault().Value;
+        }
+
+        private void CopyToFK()
+        {
+            this._updateAction = () =>
+            {
+                List<GuideCommand.EqualsInfo> infos = new List<GuideCommand.EqualsInfo>();
+                {
+                    foreach (KeyValuePair<IK, IKWrapper> pair in this._iks)
+                    {
+                        if (pair.Value.type == IKType.FullBodyBipedIK)
+                        {
+                            FullBodyBipedIK fbbik = (FullBodyBipedIK)pair.Value.ik;
+
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.pelvis));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.leftThigh));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.leftCalf));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.leftFoot));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.rightThigh));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.rightCalf));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.rightFoot));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.leftUpperArm));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.leftForearm));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.leftHand));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.rightUpperArm));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.rightForearm));
+                            infos.Add(this.GetEqualsCommandForTransform(fbbik.references.rightHand));
+                            foreach (Transform transform in fbbik.references.spine)
+                            {
+                                infos.Add(this.GetEqualsCommandForTransform(transform));
+                            }
+                        }
+                        else
+                        {
+                            foreach (IKSolver.Point point in pair.Value.solver.GetPoints())
+                                if (point != null)
+                                    infos.Add(this.GetEqualsCommandForTransform(point.transform));
+                        }
+                    }
+                }
+                UndoRedoManager.Instance.Push(new GuideCommand.RotationEqualsCommand(infos.ToArray()));
+            };
+        }
+
+        private GuideCommand.EqualsInfo GetEqualsCommandForTransform(Transform t)
+        {
+            OCIChar.BoneInfo boneInfo;
+            if (this._target.fkObjects.TryGetValue(t.gameObject, out boneInfo))
+            {
+                Vector3 oldValue = boneInfo.guideObject.changeAmount.rot;
+                boneInfo.guideObject.changeAmount.rot = t.localEulerAngles;
+                return new GuideCommand.EqualsInfo()
+                {
+                    dicKey = boneInfo.guideObject.dicKey,
+                    oldValue = oldValue,
+                    newValue = boneInfo.guideObject.changeAmount.rot
+                };
+            }
+            return null;
         }
 
         private void ApplyFullBodyBipedEffectorData(IKEffector effector, FullBodyBipedIKData.EffectorData data)
@@ -1208,28 +1519,28 @@ namespace HSPE.AMModules
         #region Saves
         public override int SaveXml(XmlTextWriter xmlWriter)
         {
-            if (this._ik == null || this._ik.type == IKType.Unknown)
-                return 0;
-
             int written = 0;
             {
                 xmlWriter.WriteStartElement("iks");
+                foreach (KeyValuePair<IKWrapper, IKData> pair in this._dirtyIks)
                 {
                     xmlWriter.WriteStartElement("ik");
-                    xmlWriter.WriteAttributeString("root", this._ik.ik.transform.GetPathFrom(this._parent.transform));
-                    xmlWriter.WriteAttributeString("type", XmlConvert.ToString((int)this._ik.type));
+                    xmlWriter.WriteAttributeString("root", pair.Key.solver.GetRoot().GetPathFrom(this._parent.transform));
+                    xmlWriter.WriteAttributeString("type", XmlConvert.ToString((int)pair.Key.type));
 
-                    if (this._ikData.originalEnabled.hasValue)
-                        xmlWriter.WriteAttributeString("enabled", XmlConvert.ToString(this._ik.ik.enabled));
-                    if (this._ikData.originalWeight.hasValue)
-                        xmlWriter.WriteAttributeString("weight", XmlConvert.ToString(this._ik.solver.GetIKPositionWeight()));
+                    if (pair.Value.originalEnabled.hasValue)
+                        xmlWriter.WriteAttributeString("enabled", XmlConvert.ToString(pair.Key.ik.enabled));
+                    if (pair.Value.originalFixTransforms.hasValue)
+                        xmlWriter.WriteAttributeString("fixTransforms", XmlConvert.ToString(pair.Key.ik.fixTransforms));
+                    if (pair.Value.originalWeight.hasValue)
+                        xmlWriter.WriteAttributeString("weight", XmlConvert.ToString(pair.Key.solver.GetIKPositionWeight()));
 
-                    switch (this._ik.type)
+                    switch (pair.Key.type)
                     {
                         case IKType.FABRIK:
                             {
-                                IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-                                FABRIKData data = (FABRIKData)this._ikData;
+                                IKSolverFABRIK solver = (IKSolverFABRIK)pair.Key.solver;
+                                FABRIKData data = (FABRIKData)pair.Value;
                                 if (data.originalTolerance.hasValue)
                                     xmlWriter.WriteAttributeString("tolerance", XmlConvert.ToString(solver.tolerance));
                                 if (data.originalMaxIterations.hasValue)
@@ -1238,8 +1549,8 @@ namespace HSPE.AMModules
                             }
                         case IKType.FABRIKRoot:
                             {
-                                IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-                                FABRIKRootData data = (FABRIKRootData)this._ikData;
+                                IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)pair.Key.solver;
+                                FABRIKRootData data = (FABRIKRootData)pair.Value;
                                 if (data.originalRootPin.hasValue)
                                     xmlWriter.WriteAttributeString("tolerance", XmlConvert.ToString(solver.rootPin));
                                 if (data.originalIterations.hasValue)
@@ -1248,8 +1559,8 @@ namespace HSPE.AMModules
                             }
                         case IKType.AimIK:
                             {
-                                IKSolverAim solver = (IKSolverAim)this._ik.solver;
-                                AimIKData data = (AimIKData)this._ikData;
+                                IKSolverAim solver = (IKSolverAim)pair.Key.solver;
+                                AimIKData data = (AimIKData)pair.Value;
                                 if (data.originalTolerance.hasValue)
                                     xmlWriter.WriteAttributeString("tolerance", XmlConvert.ToString(solver.tolerance));
                                 if (data.originalMaxIterations.hasValue)
@@ -1283,8 +1594,8 @@ namespace HSPE.AMModules
                             }
                         case IKType.CCDIK:
                             {
-                                IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-                                CCDIKData data = (CCDIKData)this._ikData;
+                                IKSolverCCD solver = (IKSolverCCD)pair.Key.solver;
+                                CCDIKData data = (CCDIKData)pair.Value;
                                 if (data.originalTolerance.hasValue)
                                     xmlWriter.WriteAttributeString("tolerance", XmlConvert.ToString(solver.tolerance));
                                 if (data.originalMaxIterations.hasValue)
@@ -1293,7 +1604,7 @@ namespace HSPE.AMModules
                             }
                         case IKType.FullBodyBipedIK:
                             {
-                                FullBodyBipedIKData data = (FullBodyBipedIKData)this._ikData;
+                                FullBodyBipedIKData data = (FullBodyBipedIKData)pair.Value;
                                 xmlWriter.WriteStartElement("bodyEffector");
                                 this.SaveFullBodyBipedEffectorData(xmlWriter, data.body);
                                 xmlWriter.WriteEndElement();
@@ -1348,6 +1659,16 @@ namespace HSPE.AMModules
 
                                 break;
                             }
+                        case IKType.LimbIK:
+                            {
+                                IKSolverLimb solver = (IKSolverLimb)pair.Key.solver;
+                                LimbIKData data = (LimbIKData)pair.Value;
+                                if (data.originalRotationWeight.hasValue)
+                                    xmlWriter.WriteAttributeString("rotationWeight", XmlConvert.ToString(solver.GetIKRotationWeight()));
+                                if (data.originalBendModifierWeight.hasValue)
+                                    xmlWriter.WriteAttributeString("bendModifierWeight", XmlConvert.ToString(solver.bendModifierWeight));
+                                break;
+                            }
                     }
                     xmlWriter.WriteEndElement();
                     ++written;
@@ -1374,11 +1695,10 @@ namespace HSPE.AMModules
 
         public override bool LoadXml(XmlNode xmlNode)
         {
-            if (this._ik == null || this._ik.type == IKType.Unknown)
-                return false;
             bool changed = false;
 
             this.ResetAll();
+            this.RefreshIKList();
 
             XmlNode ikNodes = xmlNode.FindChildNode("iks");
 
@@ -1388,32 +1708,68 @@ namespace HSPE.AMModules
                 {
                     try
                     {
-                        string root = node.Attributes["root"].Value; // For the future maybe.
-                        if (XmlConvert.ToInt32(node.Attributes["type"].Value) != (int)this._ik.type)
+                        string root = node.Attributes["root"].Value;
+                        Transform t = this._parent.transform.Find(root);
+                        IKWrapper ik = this._iks.FirstOrDefault(i => i.Value.solver.GetRoot() == t && this._dirtyIks.ContainsKey(i.Value) == false).Value;
+                        if (ik == null)
                             continue;
+
+                        IKType type = (IKType)XmlConvert.ToInt32(node.Attributes["type"].Value);
+                        IKData d;
+                        switch (type)
+                        {
+                            case IKType.FABRIK:
+                                d = new FABRIKData();
+                                break;
+                            case IKType.FABRIKRoot:
+                                d = new FABRIKRootData();
+                                break;
+                            case IKType.AimIK:
+                                d = new AimIKData();
+                                break;
+                            case IKType.CCDIK:
+                                d = new CCDIKData();
+                                break;
+                            case IKType.FullBodyBipedIK:
+                                d = new FullBodyBipedIKData();
+                                break;
+                            case IKType.LimbIK:
+                                d = new LimbIKData();
+                                break;
+                            default:
+                                continue;
+                        }
 
                         if (node.Attributes["enabled"] != null)
                         {
                             bool enabled = XmlConvert.ToBoolean(node.Attributes["enabled"].Value);
-                            this._ikData.originalEnabled = this._ik.ik.enabled;
-                            this._ik.ik.enabled = enabled;
+                            d.originalEnabled = ik.ik.enabled;
+                            ik.ik.enabled = enabled;
+                            changed = true;
+                        }
+
+                        if (node.Attributes["fixTransforms"] != null)
+                        {
+                            bool enabled = XmlConvert.ToBoolean(node.Attributes["fixTransforms"].Value);
+                            d.originalFixTransforms = ik.ik.fixTransforms;
+                            ik.ik.fixTransforms = enabled;
                             changed = true;
                         }
 
                         if (node.Attributes["weight"] != null)
                         {
                             float weight = XmlConvert.ToSingle(node.Attributes["weight"].Value);
-                            this._ikData.originalWeight = this._ik.solver.GetIKPositionWeight();
-                            this._ik.solver.SetIKPositionWeight(weight);
+                            d.originalWeight = ik.solver.GetIKPositionWeight();
+                            ik.solver.SetIKPositionWeight(weight);
                             changed = true;
                         }
 
-                        switch (this._ik.type)
+                        switch (ik.type)
                         {
                             case IKType.FABRIK:
                                 {
-                                    IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-                                    FABRIKData data = (FABRIKData)this._ikData;
+                                    IKSolverFABRIK solver = (IKSolverFABRIK)ik.solver;
+                                    FABRIKData data = (FABRIKData)d;
                                     if (node.Attributes["tolerance"] != null)
                                     {
                                         float tolerance = XmlConvert.ToSingle(node.Attributes["tolerance"].Value);
@@ -1432,8 +1788,8 @@ namespace HSPE.AMModules
                                 }
                             case IKType.FABRIKRoot:
                                 {
-                                    IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-                                    FABRIKRootData data = (FABRIKRootData)this._ikData;
+                                    IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)ik.solver;
+                                    FABRIKRootData data = (FABRIKRootData)d;
                                     if (node.Attributes["tolerance"] != null)
                                     {
                                         float tolerance = XmlConvert.ToSingle(node.Attributes["tolerance"].Value);
@@ -1452,8 +1808,8 @@ namespace HSPE.AMModules
                                 }
                             case IKType.AimIK:
                                 {
-                                    IKSolverAim solver = (IKSolverAim)this._ik.solver;
-                                    AimIKData data = (AimIKData)this._ikData;
+                                    IKSolverAim solver = (IKSolverAim)ik.solver;
+                                    AimIKData data = (AimIKData)d;
                                     if (node.Attributes["tolerance"] != null)
                                     {
                                         float tolerance = XmlConvert.ToSingle(node.Attributes["tolerance"].Value);
@@ -1526,8 +1882,8 @@ namespace HSPE.AMModules
                                 }
                             case IKType.CCDIK:
                                 {
-                                    IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-                                    CCDIKData data = (CCDIKData)this._ikData;
+                                    IKSolverCCD solver = (IKSolverCCD)ik.solver;
+                                    CCDIKData data = (CCDIKData)d;
                                     if (node.Attributes["tolerance"] != null)
                                     {
                                         float tolerance = XmlConvert.ToSingle(node.Attributes["tolerance"].Value);
@@ -1545,8 +1901,8 @@ namespace HSPE.AMModules
                                 }
                             case IKType.FullBodyBipedIK:
                                 {
-                                    IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)this._ik.solver;
-                                    FullBodyBipedIKData data = (FullBodyBipedIKData)this._ikData;
+                                    IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)ik.solver;
+                                    FullBodyBipedIKData data = (FullBodyBipedIKData)d;
                                     changed = this.LoadFullBodyBipedEffectorData(node.FindChildNode("bodyEffector"), solver.bodyEffector, data.body) || changed;
                                     changed = this.LoadFullBodyBipedEffectorData(node.FindChildNode("leftShoulderEffector"), solver.leftShoulderEffector, data.leftShoulder) || changed;
                                     changed = this.LoadFullBodyBipedEffectorData(node.FindChildNode("leftHandEffector"), solver.leftHandEffector, data.leftHand) || changed;
@@ -1563,7 +1919,28 @@ namespace HSPE.AMModules
                                     changed = this.LoadFullBodyBipedConstraintBendData(node.FindChildNode("rightLegConstraint"), solver.rightLegChain.bendConstraint, data.rightLeg) || changed;
                                     break;
                                 }
+                            case IKType.LimbIK:
+                                {
+                                    IKSolverLimb solver = (IKSolverLimb)ik.solver;
+                                    LimbIKData data = (LimbIKData)d;
+                                    if (node.Attributes["rotationWeight"] != null)
+                                    {
+                                        float rotationWeight = XmlConvert.ToSingle(node.Attributes["rotationWeight"].Value);
+                                        data.originalRotationWeight = solver.GetIKRotationWeight();
+                                        solver.SetIKRotationWeight(rotationWeight);
+                                        changed = true;
+                                    }
+                                    if (node.Attributes["bendModifierWeight"] != null)
+                                    {
+                                        float bendModifierWeight = XmlConvert.ToInt32(node.Attributes["bendModifierWeight"].Value);
+                                        data.originalBendModifierWeight = solver.bendModifierWeight;
+                                        solver.bendModifierWeight = bendModifierWeight;
+                                        changed = true;
+                                    }
+                                    break;
+                                }
                         }
+                        this._dirtyIks.Add(ik, d);
                     }
                     catch (Exception e)
                     {
@@ -1612,26 +1989,34 @@ namespace HSPE.AMModules
             return changed;
         }
 
-        private void SetNotDirty()
+        private void SetIKNotDirty(IKWrapper ik)
         {
-            if (this._ikData.originalEnabled.hasValue)
+            if (this._dirtyIks.TryGetValue(ik, out IKData d) == false)
+                return;
+            if (d.originalEnabled.hasValue)
             {
-                this._ik.ik.enabled = this._ikData.originalEnabled;
-                this._ikData.originalEnabled.Reset();
+                ik.ik.enabled = d.originalEnabled;
+                d.originalEnabled.Reset();
             }
 
-            if (this._ikData.originalWeight.hasValue)
+            if (d.originalFixTransforms.hasValue)
             {
-                this._ik.solver.SetIKPositionWeight(this._ikData.originalWeight);
-                this._ikData.originalWeight.Reset();
+                ik.ik.fixTransforms = d.originalFixTransforms;
+                d.originalFixTransforms.Reset();
             }
 
-            switch (this._ik.type)
+            if (d.originalWeight.hasValue)
+            {
+                ik.solver.SetIKPositionWeight(d.originalWeight);
+                d.originalWeight.Reset();
+            }
+
+            switch (ik.type)
             {
                 case IKType.FABRIK:
                     {
-                        IKSolverFABRIK solver = (IKSolverFABRIK)this._ik.solver;
-                        FABRIKData data = (FABRIKData)this._ikData;
+                        IKSolverFABRIK solver = (IKSolverFABRIK)ik.solver;
+                        FABRIKData data = (FABRIKData)d;
                         if (data.originalTolerance.hasValue)
                         {
                             solver.tolerance = data.originalTolerance;
@@ -1646,8 +2031,8 @@ namespace HSPE.AMModules
                     }
                 case IKType.FABRIKRoot:
                     {
-                        IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)this._ik.solver;
-                        FABRIKRootData data = (FABRIKRootData)this._ikData;
+                        IKSolverFABRIKRoot solver = (IKSolverFABRIKRoot)ik.solver;
+                        FABRIKRootData data = (FABRIKRootData)d;
                         if (data.originalRootPin.hasValue)
                         {
                             solver.rootPin = data.originalRootPin;
@@ -1662,8 +2047,8 @@ namespace HSPE.AMModules
                     }
                 case IKType.AimIK:
                     {
-                        IKSolverAim solver = (IKSolverAim)this._ik.solver;
-                        AimIKData data = (AimIKData)this._ikData;
+                        IKSolverAim solver = (IKSolverAim)ik.solver;
+                        AimIKData data = (AimIKData)d;
                         if (data.originalTolerance.hasValue)
                         {
                             solver.tolerance = data.originalTolerance;
@@ -1708,8 +2093,8 @@ namespace HSPE.AMModules
                     }
                 case IKType.CCDIK:
                     {
-                        IKSolverCCD solver = (IKSolverCCD)this._ik.solver;
-                        CCDIKData data = (CCDIKData)this._ikData;
+                        IKSolverCCD solver = (IKSolverCCD)ik.solver;
+                        CCDIKData data = (CCDIKData)d;
                         if (data.originalTolerance.hasValue)
                         {
                             solver.tolerance = data.originalTolerance;
@@ -1724,8 +2109,8 @@ namespace HSPE.AMModules
                     }
                 case IKType.FullBodyBipedIK:
                     {
-                        IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)this._ik.solver;
-                        FullBodyBipedIKData data = (FullBodyBipedIKData)this._ikData;
+                        IKSolverFullBodyBiped solver = (IKSolverFullBodyBiped)ik.solver;
+                        FullBodyBipedIKData data = (FullBodyBipedIKData)d;
                         this.SetFullBodyBipedEffectorNotDirty(solver.bodyEffector, data.body);
                         this.SetFullBodyBipedEffectorNotDirty(solver.leftShoulderEffector, data.leftShoulder);
                         this.SetFullBodyBipedEffectorNotDirty(solver.leftHandEffector, data.leftHand);
@@ -1742,7 +2127,24 @@ namespace HSPE.AMModules
                         this.SetFullBodyBipedConstraintBendNotDirty(solver.rightLegChain.bendConstraint, data.rightLeg);
                         break;
                     }
+                case IKType.LimbIK:
+                    {
+                        IKSolverLimb solver = (IKSolverLimb)ik.solver;
+                        LimbIKData data = (LimbIKData)d;
+                        if (data.originalRotationWeight.hasValue)
+                        {
+                            solver.SetIKRotationWeight(data.originalRotationWeight);
+                            data.originalRotationWeight.Reset();
+                        }
+                        if (data.originalBendModifierWeight.hasValue)
+                        {
+                            solver.bendModifierWeight = data.originalBendModifierWeight;
+                            data.originalBendModifierWeight.Reset();
+                        }
+                        break;
+                    }
             }
+            this._dirtyIks.Remove(ik);
         }
 
         private void SetFullBodyBipedEffectorNotDirty(IKEffector effector, FullBodyBipedIKData.EffectorData data)
@@ -1770,50 +2172,99 @@ namespace HSPE.AMModules
 
         private void ResetAll()
         {
-            this.SetNotDirty();
+            foreach (KeyValuePair<IKWrapper, IKData> pair in new Dictionary<IKWrapper, IKData>(this._dirtyIks))
+                this.SetIKNotDirty(pair.Key);
         }
         #endregion
 
         #region Timeline Compatibility
         internal static class TimelineCompatibility
         {
+            private class Parameter
+            {
+                public readonly IKEditor editor;
+                public readonly IKWrapper ik;
+                private readonly int _hashCode;
+
+                private Parameter()
+                {
+                    unchecked
+                    {
+                        int hash = 17;
+                        hash = hash * 31 + (this.editor != null ? this.editor.GetHashCode() : 0);
+                        this._hashCode = hash * 31 + (this.ik != null ? this.ik.GetHashCode() : 0);
+                    }
+                }
+
+                public Parameter(IKEditor editor, IKWrapper ik) : this()
+                {
+                    this.editor = editor;
+                    this.ik = ik;
+                }
+
+                public override int GetHashCode()
+                {
+                    return this._hashCode;
+                }
+            }
+
             public static void Populate()
             {
-                UnityEngine.Debug.LogError("AIPE.IKEditor.TimelineCompatibility.Populate");
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "ikEnabled",
                         name: "IK Enabled",
                         interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
+                            Parameter p = (Parameter)parameter;
                             bool newEnabled = (bool)leftValue;
-                            if (editor.GetIKEnabled() != newEnabled)
-                                editor.SetIKEnabled(newEnabled);
+                            if (p.editor.GetIKEnabled(p.ik) != newEnabled)
+                                p.editor.SetIKEnabled(p.ik, newEnabled);
                         },
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetNotFullBodyBipedIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetIKEnabled(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetIKEnabled(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadBool("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (bool)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
+                        checkIntegrity: CheckIntegrity
+                        );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "ikFixTransforms",
+                        name: "IK Fix Transforms",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            Parameter p = (Parameter)parameter;
+                            bool newFixTransforms = (bool)leftValue;
+                            if (p.editor.GetIKFixTransforms(p.ik) != newFixTransforms)
+                                p.editor.SetIKFixTransforms(p.ik, newFixTransforms);
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTargetNotFullBodyBipedIK,
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetIKFixTransforms(((Parameter)parameter).ik),
+                        readValueFromXml: (parameter, node) => node.ReadBool("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (bool)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                         );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "ikPositionWeight",
-                        name: "IK Weight",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetIKPositionWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        name: "IK Pos Weight",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetIKPositionWeight(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTarget,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetIKPositionWeight(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetIKPositionWeight(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 //FABRIK
@@ -1821,30 +2272,30 @@ namespace HSPE.AMModules
                         owner: HSPE._name,
                         id: "fabrikTolerance",
                         name: "IK Tolerance",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetFABRIKTolerance(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetFABRIKTolerance(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFABRIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetFABRIKTolerance(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetFABRIKTolerance(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "fabrikMaxIterations",
                         name: "IK Max Iterations",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetFABRIKMaxIterations(Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetFABRIKMaxIterations(((Parameter)parameter).ik, Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFABRIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetFABRIKMaxIterations(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetFABRIKMaxIterations(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadInt("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (int)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 //FABRIKRoot
@@ -1852,30 +2303,30 @@ namespace HSPE.AMModules
                         owner: HSPE._name,
                         id: "fabrikRootTolerance",
                         name: "IK Tolerance",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetFABRIKRootRootPin(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetFABRIKRootRootPin(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFABRIKRoot,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetFABRIKRootRootPin(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetFABRIKRootRootPin(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "fabrikRootMaxIterations",
                         name: "IK Max Iterations",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetFABRIKRootIterations(Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetFABRIKRootIterations(((Parameter)parameter).ik, Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFABRIKRoot,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetFABRIKRootIterations(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetFABRIKRootIterations(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadInt("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (int)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 //CCDIK
@@ -1883,30 +2334,30 @@ namespace HSPE.AMModules
                         owner: HSPE._name,
                         id: "ccdikTolerance",
                         name: "IK Tolerance",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetCCDIKTolerance(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetCCDIKTolerance(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetCCDIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetCCDIKTolerance(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetCCDIKTolerance(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "ccdikMaxIterations",
                         name: "IK Max Iterations",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetCCDIKMaxIterations(Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetCCDIKMaxIterations(((Parameter)parameter).ik, Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetCCDIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetCCDIKMaxIterations(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetCCDIKMaxIterations(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadInt("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (int)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 //AimIK
@@ -1914,139 +2365,170 @@ namespace HSPE.AMModules
                         owner: HSPE._name,
                         id: "aimikTolerance",
                         name: "IK Tolerance",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKTolerance(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKTolerance(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKTolerance(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKTolerance(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikMaxIterations",
                         name: "IK Max Iterations",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKMaxIterations(Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKMaxIterations(((Parameter)parameter).ik, Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKMaxIterations(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKMaxIterations(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadInt("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (int)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikAxis",
                         name: "IK Axis",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKAxis(Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKAxis(((Parameter)parameter).ik, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKAxis(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKAxis(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadVector3("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikClampWeight",
                         name: "IK Clamp Weight",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKClampWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKClampWeight(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKClampWeight(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKClampWeight(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
-                );                
+                );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikClampSmoothing",
                         name: "IK Clamp Smoothing",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKClampSmoothing(Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKClampSmoothing(((Parameter)parameter).ik, Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKClampSmoothing(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKClampSmoothing(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadInt("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (int)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikPoleAxis",
                         name: "IK Pole Axis",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKPoleAxis(Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKPoleAxis(((Parameter)parameter).ik, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKPoleAxis(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKPoleAxis(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadVector3("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikPoleAxis",
                         name: "IK Pole Position",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKPolePosition(Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKPolePosition(((Parameter)parameter).ik, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIKPoleTargetNull,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKPolePosition(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKPolePosition(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadVector3("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "aimikPoleWeight",
                         name: "IK Pole Weight",
-                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((IKEditor)parameter).SetAimIKPoleWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetAimIKPoleWeight(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetAimIK,
-                        getValue: (oci, parameter) => ((IKEditor)parameter).GetAimIKPoleWeight(),
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetAimIKPoleWeight(((Parameter)parameter).ik),
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 //FullBodyBipedIK
-                GenerateEffectorInterpolables("R. Shoulder", e => ((IKSolverFullBodyBiped)e._ik.solver).rightShoulderEffector, e => ((FullBodyBipedIKData)e._ikData).rightShoulder);
-                GenerateEffectorInterpolables("L. Shoulder", e => ((IKSolverFullBodyBiped)e._ik.solver).leftShoulderEffector, e => ((FullBodyBipedIKData)e._ikData).leftShoulder);
-                GenerateEffectorInterpolables("R. Hand", e => ((IKSolverFullBodyBiped)e._ik.solver).rightHandEffector, e => ((FullBodyBipedIKData)e._ikData).rightHand);
-                GenerateEffectorInterpolables("L. Hand", e => ((IKSolverFullBodyBiped)e._ik.solver).leftHandEffector, e => ((FullBodyBipedIKData)e._ikData).leftHand);
-                GenerateEffectorInterpolables("Body", e => ((IKSolverFullBodyBiped)e._ik.solver).bodyEffector, e => ((FullBodyBipedIKData)e._ikData).body);
-                GenerateEffectorInterpolables("R. Thigh", e => ((IKSolverFullBodyBiped)e._ik.solver).rightThighEffector, e => ((FullBodyBipedIKData)e._ikData).rightThigh);
-                GenerateEffectorInterpolables("L. Thigh", e => ((IKSolverFullBodyBiped)e._ik.solver).leftThighEffector, e => ((FullBodyBipedIKData)e._ikData).leftThigh);
-                GenerateEffectorInterpolables("R. Foot", e => ((IKSolverFullBodyBiped)e._ik.solver).rightFootEffector, e => ((FullBodyBipedIKData)e._ikData).rightFoot);
-                GenerateEffectorInterpolables("L. Foot", e => ((IKSolverFullBodyBiped)e._ik.solver).leftFootEffector, e => ((FullBodyBipedIKData)e._ikData).leftFoot);
-                GenerateConstraintBendInterpolables("R. Elbow", e => ((IKSolverFullBodyBiped)e._ik.solver).rightArmChain.bendConstraint, e => ((FullBodyBipedIKData)e._ikData).rightArm);
-                GenerateConstraintBendInterpolables("L. Elbow", e => ((IKSolverFullBodyBiped)e._ik.solver).leftArmChain.bendConstraint, e => ((FullBodyBipedIKData)e._ikData).leftArm);
-                GenerateConstraintBendInterpolables("R. Knee", e => ((IKSolverFullBodyBiped)e._ik.solver).rightLegChain.bendConstraint, e => ((FullBodyBipedIKData)e._ikData).rightLeg);
-                GenerateConstraintBendInterpolables("L. Knee", e => ((IKSolverFullBodyBiped)e._ik.solver).leftLegChain.bendConstraint, e => ((FullBodyBipedIKData)e._ikData).leftLeg);
+                GenerateEffectorInterpolables("R. Shoulder", e => ((IKSolverFullBodyBiped)e.ik.solver).rightShoulderEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).rightShoulder);
+                GenerateEffectorInterpolables("L. Shoulder", e => ((IKSolverFullBodyBiped)e.ik.solver).leftShoulderEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).leftShoulder);
+                GenerateEffectorInterpolables("R. Hand", e => ((IKSolverFullBodyBiped)e.ik.solver).rightHandEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).rightHand);
+                GenerateEffectorInterpolables("L. Hand", e => ((IKSolverFullBodyBiped)e.ik.solver).leftHandEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).leftHand);
+                GenerateEffectorInterpolables("Body", e => ((IKSolverFullBodyBiped)e.ik.solver).bodyEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).body);
+                GenerateEffectorInterpolables("R. Thigh", e => ((IKSolverFullBodyBiped)e.ik.solver).rightThighEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).rightThigh);
+                GenerateEffectorInterpolables("L. Thigh", e => ((IKSolverFullBodyBiped)e.ik.solver).leftThighEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).leftThigh);
+                GenerateEffectorInterpolables("R. Foot", e => ((IKSolverFullBodyBiped)e.ik.solver).rightFootEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).rightFoot);
+                GenerateEffectorInterpolables("L. Foot", e => ((IKSolverFullBodyBiped)e.ik.solver).leftFootEffector, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).leftFoot);
+                GenerateConstraintBendInterpolables("R. Elbow", e => ((IKSolverFullBodyBiped)e.ik.solver).rightArmChain.bendConstraint, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).rightArm);
+                GenerateConstraintBendInterpolables("L. Elbow", e => ((IKSolverFullBodyBiped)e.ik.solver).leftArmChain.bendConstraint, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).leftArm);
+                GenerateConstraintBendInterpolables("R. Knee", e => ((IKSolverFullBodyBiped)e.ik.solver).rightLegChain.bendConstraint, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).rightLeg);
+                GenerateConstraintBendInterpolables("L. Knee", e => ((IKSolverFullBodyBiped)e.ik.solver).leftLegChain.bendConstraint, e => ((FullBodyBipedIKData)e.editor.SetIKDirty(e.ik)).leftLeg);
+                //LimbIK
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "limbikRotationWeight",
+                        name: "IK Rot Weight",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetLimbIKRotationWeight(((Parameter)parameter).ik, Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTargetLimbIK,
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetLimbIKRotationWeight(((Parameter)parameter).ik),
+                        readValueFromXml: (parameter, node) => node.ReadFloat("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
+                        checkIntegrity: CheckIntegrity
+                );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "libmikBendModifierWeight",
+                        name: "IK Bend Weight",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((Parameter)parameter).editor.SetLimbIKBendModifierWeight(((Parameter)parameter).ik, Mathf.RoundToInt(Mathf.LerpUnclamped((int)leftValue, (int)rightValue, factor))),
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTargetLimbIK,
+                        getValue: (oci, parameter) => ((Parameter)parameter).editor.GetLimbIKBendModifierWeight(((Parameter)parameter).ik),
+                        readValueFromXml: (parameter, node) => node.ReadFloat("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
+                        checkIntegrity: CheckIntegrity
+                );
             }
-            
-            private static void GenerateEffectorInterpolables(string effectorName, Func<IKEditor, IKEffector> getEffector, Func<IKEditor, FullBodyBipedIKData.EffectorData> getEffectorData)
+
+            private static void GenerateEffectorInterpolables(string effectorName, Func<Parameter, IKEffector> getEffector, Func<Parameter, FullBodyBipedIKData.EffectorData> getEffectorData)
             {
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
@@ -2054,21 +2536,21 @@ namespace HSPE.AMModules
                         name: "IK " + effectorName + " Pos Weight",
                         interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
-                            editor.SetEffectorPositionWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor), getEffector(editor), getEffectorData(editor));
+                            Parameter p = (Parameter)parameter;
+                            p.editor.SetEffectorPositionWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor), getEffector(p), getEffectorData(p));
                         },
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFullBodyBipedIK,
                         getValue: (oci, parameter) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
-                            return ((IKEditor)parameter).GetEffectorPositionWeight(getEffector(editor));
+                            Parameter p = (Parameter)parameter;
+                            return ((Parameter)parameter).editor.GetEffectorPositionWeight(getEffector(p));
                         },
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
@@ -2077,26 +2559,26 @@ namespace HSPE.AMModules
                         name: "IK " + effectorName + " Rot Weight",
                         interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
-                            editor.SetEffectorRotationWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor), getEffector(editor), getEffectorData(editor));
+                            Parameter p = (Parameter)parameter;
+                            p.editor.SetEffectorRotationWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor), getEffector(p), getEffectorData(p));
                         },
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFullBodyBipedIK,
                         getValue: (oci, parameter) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
-                            return ((IKEditor)parameter).GetEffectorRotationWeight(getEffector(editor));
+                            Parameter p = (Parameter)parameter;
+                            return ((Parameter)parameter).editor.GetEffectorRotationWeight(getEffector(p));
                         },
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
             }
 
-            private static void GenerateConstraintBendInterpolables(string constraintName, Func<IKEditor, IKConstraintBend> getConstraint, Func<IKEditor, FullBodyBipedIKData.ConstraintBendData> getConstraintData)
+            private static void GenerateConstraintBendInterpolables(string constraintName, Func<Parameter, IKConstraintBend> getConstraint, Func<Parameter, FullBodyBipedIKData.ConstraintBendData> getConstraintData)
             {
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
@@ -2104,84 +2586,110 @@ namespace HSPE.AMModules
                         name: "IK " + constraintName + " Weight",
                         interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
-                            editor.SetConstraintBendWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor), getConstraint(editor), getConstraintData(editor));
+                            Parameter p = (Parameter)parameter;
+                            p.editor.SetConstraintBendWeight(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor), getConstraint(p), getConstraintData(p));
                         },
                         interpolateAfter: null,
                         isCompatibleWithTarget: IsCompatibleWithTargetFullBodyBipedIK,
                         getValue: (oci, parameter) =>
                         {
-                            IKEditor editor = (IKEditor)parameter;
-                            return ((IKEditor)parameter).GetConstraintBendWeight(getConstraint(editor));
+                            Parameter p = (Parameter)parameter;
+                            return ((Parameter)parameter).editor.GetConstraintBendWeight(getConstraint(p));
                         },
                         readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                         getParameter: GetParameter,
-                        readParameterFromXml: null,
-                        writeParameterToXml: null,
+                        readParameterFromXml: ReadParameterFromXml,
+                        writeParameterToXml: WriteParameterToXml,
                         checkIntegrity: CheckIntegrity
                 );
+            }
+
+            private static object ReadParameterFromXml(ObjectCtrlInfo oci, XmlNode node)
+            {
+                PoseController controller = oci.guideObject.transformTarget.GetComponent<PoseController>();
+                if (node.Attributes["parameter"] != null)
+                {
+                    string root = node.Attributes["parameter"].Value;
+                    Transform t = controller._ikEditor._parent.transform.Find(root);
+                    IKWrapper ik = controller._ikEditor._iks.FirstOrDefault(i => i.Value.solver.GetRoot() == t).Value;
+                    return new Parameter(controller._ikEditor, ik);
+                }
+                return new Parameter(controller._ikEditor, controller._ikEditor._iks.FirstOrDefault().Value);
+            }
+
+            private static void WriteParameterToXml(ObjectCtrlInfo oci, XmlTextWriter writer, object o)
+            {
+                Parameter p = (Parameter)o;
+                writer.WriteAttributeString("parameter", p.ik.solver.GetRoot().GetPathFrom(p.editor._parent.transform));
             }
 
             private static bool CheckIntegrity(ObjectCtrlInfo oci, object parameter, object leftValue, object rightValue)
             {
                 if (parameter == null)
                     return false;
-                IKEditor editor = (IKEditor)parameter;
-                return editor.shouldDisplay && editor._ik.ik != null && editor._ik.solver != null;
+                Parameter p = (Parameter)parameter;
+                return p.editor.shouldDisplay && p.ik.ik != null && p.ik.solver != null;
             }
 
             private static bool IsCompatibleWithTarget(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null;
             }
 
             private static bool IsCompatibleWithTargetNotFullBodyBipedIK(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type != IKType.FullBodyBipedIK;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type != IKType.FullBodyBipedIK;
             }
 
             private static bool IsCompatibleWithTargetFABRIK(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type == IKType.FABRIK;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.FABRIK;
             }
 
             private static bool IsCompatibleWithTargetFABRIKRoot(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type == IKType.FABRIKRoot;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.FABRIKRoot;
             }
 
             private static bool IsCompatibleWithTargetAimIK(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type == IKType.AimIK;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.AimIK;
             }
 
             private static bool IsCompatibleWithTargetAimIKPoleTargetNull(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type == IKType.AimIK && ((IKSolverAim)controller._ikEditor._ik.solver).poleTarget == null;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.AimIK && ((IKSolverAim)controller._ikEditor._ikTarget.solver).poleTarget == null;
             }
 
             private static bool IsCompatibleWithTargetCCDIK(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type == IKType.CCDIK;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.CCDIK;
             }
 
             private static bool IsCompatibleWithTargetFullBodyBipedIK(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ik.type == IKType.FullBodyBipedIK;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.FullBodyBipedIK;
+            }
+
+            private static bool IsCompatibleWithTargetLimbIK(ObjectCtrlInfo oci)
+            {
+                PoseController controller;
+                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.LimbIK;
             }
 
             private static object GetParameter(ObjectCtrlInfo oci)
             {
-                return oci.guideObject.transformTarget.GetComponent<PoseController>()._ikEditor;
+                PoseController controller = oci.guideObject.transformTarget.GetComponent<PoseController>();
+                return new Parameter(controller._ikEditor, controller._ikEditor._ikTarget);
             }
         }
         #endregion

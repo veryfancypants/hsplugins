@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
 using AIChara;
 using AIProject;
 #endif
-#if HONEYSELECT || PLAYHOME
+#if IPA
 using Harmony;
-#else
+#elif BEPINEX
 using HarmonyLib;
 #endif
 using Studio;
@@ -30,7 +30,7 @@ namespace HSPE.AMModules
         private const float _dragRadius = 0.05f;
 #elif KOIKATSU
         private const float _dragRadius = 0.03f;
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
         private const float _dragRadius = 0.5f;
 #endif
         #endregion
@@ -38,8 +38,10 @@ namespace HSPE.AMModules
         #region Private Types
         private class BoobData
         {
-            public EditableValue<Vector3> gravity;
-            public EditableValue<Vector3> force;
+            public bool enabled;
+            public Vector3 gravity;
+            public Vector3 force;
+            public EditableValue<bool> originalEnabled;
             public EditableValue<Vector3> originalGravity;
             public EditableValue<Vector3> originalForce;
 
@@ -49,8 +51,10 @@ namespace HSPE.AMModules
 
             public BoobData(BoobData other)
             {
+                this.enabled = other.enabled;
                 this.force = other.force;
                 this.gravity = other.gravity;
+                this.originalEnabled = other.originalEnabled;
                 this.originalGravity = other.originalGravity;
                 this.originalForce = other.originalForce;
             }
@@ -60,7 +64,7 @@ namespace HSPE.AMModules
         {
             LeftBoob,
             RightBoob,
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             LeftButtCheek,
             RightButtCheek,
 #endif
@@ -187,7 +191,6 @@ namespace HSPE.AMModules
                 this.rightCircle.active = active;
             }
         }
-#if HONEYSELECT || AISHOUJO
         [HarmonyPatch(typeof(DynamicBone_Ver02), "LateUpdate")]
         private class DynamicBone_Ver02_LateUpdate_Patches
         {
@@ -202,7 +205,6 @@ namespace HSPE.AMModules
                 return result;
             }
         }
-#endif
         #endregion
 
         #region Private Variables
@@ -210,21 +212,17 @@ namespace HSPE.AMModules
         private readonly GenericOCITarget _target;
         private readonly DynamicBone_Ver02 _rightBoob;
         private readonly DynamicBone_Ver02 _leftBoob;
-#if HONEYSELECT || AISHOUJO
         private readonly Action _rightBoobInitTransforms;
         private readonly Action<float> _rightBoobUpdateDynamicBones;
         private readonly Action _leftBoobInitTransforms;
         private readonly Action<float> _leftBoobUpdateDynamicBones;
-#endif
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
         private readonly DynamicBone_Ver02 _rightButtCheek;
         private readonly DynamicBone_Ver02 _leftButtCheek;
-#if AISHOUJO
         private readonly Action _rightButtInitTransforms;
         private readonly Action<float> _rightButtUpdateDynamicBones;
         private readonly Action _leftButtInitTransforms;
         private readonly Action<float> _leftButtUpdateDynamicBones;
-#endif
 #endif
         private readonly Dictionary<DynamicBone_Ver02, BoobData> _dirtyDynamicBones = new Dictionary<DynamicBone_Ver02, BoobData>(4);
         private DynamicBoneDragType _dynamicBoneDragType;
@@ -232,13 +230,11 @@ namespace HSPE.AMModules
         private Vector3 _dragDynamicBoneEndPosition;
         private Vector3 _lastDynamicBoneGravity;
         private static DebugLines _debugLines;
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
         private static DebugLines _debugLinesButt;
         private Vector2 _scroll;
 #endif
-#if HONEYSELECT || AISHOUJO
         private bool _alternativeUpdateMode = false;
-#endif
         internal DynamicBone_Ver02[] _dynamicBones;
         private Action _preDragAction = null;
         #endregion
@@ -247,7 +243,7 @@ namespace HSPE.AMModules
         public override AdvancedModeModuleType type { get { return AdvancedModeModuleType.BoobsEditor; } }
 #if HONEYSELECT || PLAYHOME
         public override string displayName { get { return "Boobs"; } }
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
         public override string displayName { get { return "Boobs & Butt"; } }
 #endif
         public bool isDraggingDynamicBone { get; private set; }
@@ -270,11 +266,10 @@ namespace HSPE.AMModules
             {
                 _debugLines = new DebugLines();
                 _debugLines.SetActive(false);
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                 _debugLinesButt = new DebugLines();
                 _debugLinesButt.SetActive(false);
 #endif
-                MainWindow._self._cameraEventsDispatcher.onPreRender += UpdateGizmosIf;
             }
 
 #if HONEYSELECT
@@ -288,14 +283,13 @@ namespace HSPE.AMModules
             this._rightBoob = this._target.ociChar.charInfo.getDynamicBoneBust(ChaInfo.DynamicBoneKind.BreastR);
             this._leftButtCheek = this._target.ociChar.charInfo.getDynamicBoneBust(ChaInfo.DynamicBoneKind.HipL); // "Hip" ( ͡° ͜ʖ ͡°)
             this._rightButtCheek = this._target.ociChar.charInfo.getDynamicBoneBust(ChaInfo.DynamicBoneKind.HipR);
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             this._leftBoob = this._target.ociChar.charInfo.GetDynamicBoneBustAndHip(ChaControlDefine.DynamicBoneKind.BreastL);
             this._rightBoob = this._target.ociChar.charInfo.GetDynamicBoneBustAndHip(ChaControlDefine.DynamicBoneKind.BreastR);
             this._leftButtCheek = this._target.ociChar.charInfo.GetDynamicBoneBustAndHip(ChaControlDefine.DynamicBoneKind.HipL);
             this._rightButtCheek = this._target.ociChar.charInfo.GetDynamicBoneBustAndHip(ChaControlDefine.DynamicBoneKind.HipR);
 #endif
 
-#if HONEYSELECT || AISHOUJO
             DynamicBone_Ver02_LateUpdate_Patches.shouldExecuteLateUpdate += this.ShouldExecuteDynamicBoneLateUpdate;
             MethodInfo initTransforms = typeof(DynamicBone_Ver02).GetMethod("InitTransforms", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
             MethodInfo updateDynamicBones = typeof(DynamicBone_Ver02).GetMethod("UpdateDynamicBones", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
@@ -304,12 +298,11 @@ namespace HSPE.AMModules
             this._leftBoobUpdateDynamicBones = (Action<float>)Delegate.CreateDelegate(typeof(Action<float>), this._leftBoob, updateDynamicBones);
             this._rightBoobInitTransforms = (Action)Delegate.CreateDelegate(typeof(Action), this._rightBoob, initTransforms);
             this._rightBoobUpdateDynamicBones = (Action<float>)Delegate.CreateDelegate(typeof(Action<float>), this._rightBoob, updateDynamicBones);
-#if AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             this._leftButtInitTransforms = (Action)Delegate.CreateDelegate(typeof(Action), this._leftButtCheek, initTransforms);
             this._leftButtUpdateDynamicBones = (Action<float>)Delegate.CreateDelegate(typeof(Action<float>), this._leftButtCheek, updateDynamicBones);
             this._rightButtInitTransforms = (Action)Delegate.CreateDelegate(typeof(Action), this._rightButtCheek, initTransforms);
             this._rightButtUpdateDynamicBones = (Action<float>)Delegate.CreateDelegate(typeof(Action<float>), this._rightButtCheek, updateDynamicBones);
-#endif
 #endif
             this._dynamicBones = this._parent.GetComponentsInChildren<DynamicBone_Ver02>(true);
 
@@ -344,9 +337,11 @@ namespace HSPE.AMModules
             {
                 foreach (KeyValuePair<DynamicBone_Ver02, BoobData> kvp in this._dirtyDynamicBones)
                 {
-                    if (kvp.Value.gravity.hasValue)
+                    if (kvp.Value.originalEnabled.hasValue)
+                        kvp.Key.enabled = kvp.Value.enabled;
+                    if (kvp.Value.originalGravity.hasValue)
                         kvp.Key.Gravity = kvp.Value.gravity;
-                    if (kvp.Value.force.hasValue)
+                    if (kvp.Value.originalForce.hasValue)
                         kvp.Key.Force = kvp.Value.force;
                 }
             }
@@ -356,14 +351,11 @@ namespace HSPE.AMModules
         {
             base.OnDestroy();
             this._parent.onLateUpdate -= this.LateUpdate;
-#if HONEYSELECT || AISHOUJO
             DynamicBone_Ver02_LateUpdate_Patches.shouldExecuteLateUpdate -= this.ShouldExecuteDynamicBoneLateUpdate;
-#endif
         }
         #endregion
 
         #region Public Methods
-#if HONEYSELECT || AISHOUJO
         public override void IKSolverOnPostUpdate()
         {
             if (this._alternativeUpdateMode)
@@ -378,7 +370,7 @@ namespace HSPE.AMModules
                     this._rightBoobInitTransforms();
                     this._rightBoobUpdateDynamicBones(Time.deltaTime);
                 }
-#if AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                 if (this._leftButtCheek.GetWeight() > 0f)
                 {
                     this._leftButtInitTransforms();
@@ -407,7 +399,7 @@ namespace HSPE.AMModules
                     this._rightBoobInitTransforms();
                     this._rightBoobUpdateDynamicBones(Time.deltaTime);
                 }
-#if AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                 if (this._leftButtCheek.GetWeight() > 0f)
                 {
                     this._leftButtInitTransforms();
@@ -421,7 +413,6 @@ namespace HSPE.AMModules
 #endif
             }
         }
-#endif
 
         public override void DrawAdvancedModeChanged()
         {
@@ -437,7 +428,7 @@ namespace HSPE.AMModules
         {
             GUILayout.BeginVertical();
 
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             GUILayout.BeginHorizontal();
             this._scroll = GUILayout.BeginScrollView(this._scroll);
 #endif
@@ -445,8 +436,7 @@ namespace HSPE.AMModules
             GUILayout.BeginHorizontal();
 
             GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label("Right boob" + (this.IsDirty(this._rightBoob) ? "*" : ""));
-            this.DisplaySingle(this._rightBoob);
+            this.DisplaySingle(this._rightBoob, "Right boob");
             GUILayout.EndVertical();
 
 #if HONEYSELECT || PLAYHOME
@@ -458,24 +448,21 @@ namespace HSPE.AMModules
 #endif
 
             GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label("Left boob" + (this.IsDirty(this._leftBoob) ? "*" : ""));
-            this.DisplaySingle(this._leftBoob);
+            this.DisplaySingle(this._leftBoob, "Left boob");
             GUILayout.EndVertical();
 
             GUILayout.EndHorizontal();
 
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             //// BUTT
             GUILayout.BeginHorizontal();
 
             GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label("Right butt cheek" + (this.IsDirty(this._rightButtCheek) ? "*" : ""));
-            this.DisplaySingle(this._rightButtCheek);
+            this.DisplaySingle(this._rightButtCheek, "Right butt cheek");
             GUILayout.EndVertical();
 
             GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label("Left butt cheek" + (this.IsDirty(this._leftButtCheek) ? "*" : ""));
-            this.DisplaySingle(this._leftButtCheek);
+            this.DisplaySingle(this._leftButtCheek, "Left butt cheek");
             GUILayout.EndVertical();
 
             GUILayout.EndHorizontal();
@@ -491,9 +478,7 @@ namespace HSPE.AMModules
             GUILayout.EndHorizontal();
 #endif
             GUILayout.BeginHorizontal();
-#if HONEYSELECT || AISHOUJO
             this._alternativeUpdateMode = GUILayout.Toggle(this._alternativeUpdateMode, "Alternative update mode");
-#endif
             GUILayout.FlexibleSpace();
 
             if (GUILayout.Button("Copy to FK", GUILayout.ExpandWidth(false)))
@@ -514,19 +499,19 @@ namespace HSPE.AMModules
 #elif PLAYHOME
                 ChaControl charFemale = this._target.ociChar.charInfo;
                 ChaControl otherFemale = other._target.ociChar.charInfo;
-#elif KOIKATSU || AISHOUJO
+#elif KOIKATSU || AISHOUJO || HONEYSELECT2
                 ChaControl charFemale = this._target.ociChar.charInfo;
                 ChaControl otherFemale = other._target.ociChar.charInfo;
 #endif
-#if HONEYSELECT || AISHOUJO
                 this._alternativeUpdateMode = other._alternativeUpdateMode;
-#endif
                 foreach (KeyValuePair<DynamicBone_Ver02, BoobData> kvp in other._dirtyDynamicBones)
                 {
                     DynamicBone_Ver02 db = this.GetDynamicBone(other.GetID(kvp.Key));
 
                     if (db != null)
                     {
+                        if (kvp.Value.originalEnabled.hasValue)
+                            db.enabled = other.GetEnabled(kvp.Key);
                         if (kvp.Value.originalForce.hasValue)
                             db.Force = other.GetForce(kvp.Key);
                         if (kvp.Value.originalGravity.hasValue)
@@ -541,9 +526,7 @@ namespace HSPE.AMModules
         {
             int written = 0;
             xmlWriter.WriteStartElement("boobs");
-#if HONEYSELECT || AISHOUJO
             xmlWriter.WriteAttributeString("alternativeUpdateMode", XmlConvert.ToString(this._alternativeUpdateMode));
-#endif
             written++;
             if (this._dirtyDynamicBones.Count != 0)
             {
@@ -554,25 +537,29 @@ namespace HSPE.AMModules
                         name = "left";
                     else if (kvp.Key == this._rightBoob)
                         name = "right";
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                     else if (kvp.Key == this._leftButtCheek)
                         name = "leftButt";
                     else if (kvp.Key == this._rightButtCheek)
                         name = "rightButt";
 #endif
                     xmlWriter.WriteStartElement(name);
+
+                    if (kvp.Value.originalEnabled.hasValue)
+                        xmlWriter.WriteAttributeString("enabled", XmlConvert.ToString(kvp.Value.enabled));
+
                     if (kvp.Value.originalGravity.hasValue)
                     {
-                        xmlWriter.WriteAttributeString("gravityX", XmlConvert.ToString(kvp.Value.gravity.value.x));
-                        xmlWriter.WriteAttributeString("gravityY", XmlConvert.ToString(kvp.Value.gravity.value.y));
-                        xmlWriter.WriteAttributeString("gravityZ", XmlConvert.ToString(kvp.Value.gravity.value.z));
+                        xmlWriter.WriteAttributeString("gravityX", XmlConvert.ToString(kvp.Value.gravity.x));
+                        xmlWriter.WriteAttributeString("gravityY", XmlConvert.ToString(kvp.Value.gravity.y));
+                        xmlWriter.WriteAttributeString("gravityZ", XmlConvert.ToString(kvp.Value.gravity.z));
                     }
 
                     if (kvp.Value.originalForce.hasValue)
                     {
-                        xmlWriter.WriteAttributeString("forceX", XmlConvert.ToString(kvp.Value.force.value.x));
-                        xmlWriter.WriteAttributeString("forceY", XmlConvert.ToString(kvp.Value.force.value.y));
-                        xmlWriter.WriteAttributeString("forceZ", XmlConvert.ToString(kvp.Value.force.value.z));
+                        xmlWriter.WriteAttributeString("forceX", XmlConvert.ToString(kvp.Value.force.x));
+                        xmlWriter.WriteAttributeString("forceY", XmlConvert.ToString(kvp.Value.force.y));
+                        xmlWriter.WriteAttributeString("forceZ", XmlConvert.ToString(kvp.Value.force.z));
                     }
 
                     xmlWriter.WriteEndElement();
@@ -587,7 +574,7 @@ namespace HSPE.AMModules
         {
             this.SetNotDirty(this._leftBoob);
             this.SetNotDirty(this._rightBoob);
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             this.SetNotDirty(this._leftButtCheek);
             this.SetNotDirty(this._rightButtCheek);
 #endif
@@ -596,13 +583,11 @@ namespace HSPE.AMModules
             XmlNode boobs = xmlNode.FindChildNode("boobs");
             if (boobs != null)
             {
-#if HONEYSELECT || AISHOUJO
                 if (boobs.Attributes != null && boobs.Attributes["alternativeUpdateMode"] != null)
                 {
                     changed = true;
                     this._alternativeUpdateMode = XmlConvert.ToBoolean(boobs.Attributes["alternativeUpdateMode"].Value);
                 }
-#endif
                 foreach (XmlNode node in boobs.ChildNodes)
                 {
                     try
@@ -616,7 +601,7 @@ namespace HSPE.AMModules
                             case "right":
                                 boob = this._rightBoob;
                                 break;
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                             case "leftButt":
                                 boob = this._leftButtCheek;
                                 break;
@@ -629,6 +614,12 @@ namespace HSPE.AMModules
                         if (boob != null)
                         {
                             BoobData data = new BoobData();
+                            if (node.Attributes["enabled"] != null)
+                            {
+                                bool e = XmlConvert.ToBoolean(node.Attributes["enabled"].Value);
+                                data.originalEnabled = boob.enabled;
+                                data.enabled = e;
+                            }
                             if (node.Attributes["gravityX"] != null && node.Attributes["gravityY"] != null && node.Attributes["gravityZ"] != null)
                             {
                                 Vector3 gravity;
@@ -647,7 +638,7 @@ namespace HSPE.AMModules
                                 data.originalForce = boob.Force;
                                 data.force = force;
                             }
-                            if (data.originalGravity.hasValue || data.originalForce.hasValue)
+                            if (data.originalEnabled.hasValue || data.originalGravity.hasValue || data.originalForce.hasValue)
                             {
                                 changed = true;
                                 this._dirtyDynamicBones.Add(boob, data);
@@ -669,7 +660,7 @@ namespace HSPE.AMModules
                 return "BreastL";
             if (db == this._rightBoob)
                 return "BreastR";
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             if (db == this._leftButtCheek)
                 return "HipL";
             if (db == this._rightButtCheek)
@@ -686,7 +677,7 @@ namespace HSPE.AMModules
                     return this._leftBoob;
                 case "BreastR":
                     return this._rightBoob;
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                 case "HipL":
                     return this._leftButtCheek;
                 case "HipR":
@@ -698,14 +689,13 @@ namespace HSPE.AMModules
         #endregion
 
         #region Private Methods
-#if HONEYSELECT || AISHOUJO
         private void ShouldExecuteDynamicBoneLateUpdate(DynamicBone_Ver02 bone, ref bool b)
         {
             if (this._parent.enabled && this._alternativeUpdateMode &&
                 (
                         bone == this._leftBoob
                         || bone == this._rightBoob
-#if AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                         || bone == this._leftButtCheek
                         || bone == this._rightButtCheek
 #endif
@@ -713,7 +703,6 @@ namespace HSPE.AMModules
             )
                 b = this._target.ociChar.oiCharInfo.enableIK == false && this._target.ociChar.oiCharInfo.enableFK == false;
         }
-#endif
 
         private void CopyToFK()
         {
@@ -742,27 +731,28 @@ namespace HSPE.AMModules
             };
         }
 
-        private static void UpdateGizmosIf()
+        public override void UpdateGizmos()
         {
-            if (MainWindow._self._poseTarget != null && MainWindow._self._poseTarget._target.type == GenericOCITarget.Type.Character)
-            {
-                CharaPoseController charaPoseController = (CharaPoseController)MainWindow._self._poseTarget;
-                if (GizmosEnabled(charaPoseController._boobsEditor))
-                    charaPoseController._boobsEditor.UpdateGizmos();
-            }
-        }
-
-        private void UpdateGizmos()
-        {
+            if (this.GizmosEnabled() == false)
+                return;
             this.DynamicBoneDraggingLogic();
             _debugLines.Draw(this._leftBoob, this._rightBoob, 2);
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
             _debugLinesButt.Draw(this._leftButtCheek, this._rightButtCheek, 1);
 #endif
         }
 
-        private void DisplaySingle(DynamicBone_Ver02 elem)
+        private void DisplaySingle(DynamicBone_Ver02 elem, string label)
         {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label + (this.IsDirty(elem) ? "*" : ""));
+            GUILayout.FlexibleSpace();
+            bool e = this.GetEnabled(elem);
+            bool newE = GUILayout.Toggle(e, "Enabled");
+            if (newE != e)
+                this.SetEnabled(elem, newE);
+            GUILayout.EndHorizontal();
+
             GUILayout.Label("Gravity");
             Vector3 gravity = this.GetGravity(elem);
             Vector3 newGravity = this.Vector3Editor(gravity, AdvancedModeModule._redColor, "X:   ", "Y:   ", "Z:   ");
@@ -798,10 +788,18 @@ namespace HSPE.AMModules
             GUILayout.EndHorizontal();
         }
 
+        private bool GetEnabled(DynamicBone_Ver02 bone)
+        {
+            BoobData data;
+            if (this._dirtyDynamicBones.TryGetValue(bone, out data) && data.originalEnabled.hasValue)
+                return data.enabled;
+            return bone.enabled;
+        }
+
         private Vector3 GetGravity(DynamicBone_Ver02 bone)
         {
             BoobData data;
-            if (this._dirtyDynamicBones.TryGetValue(bone, out data))
+            if (this._dirtyDynamicBones.TryGetValue(bone, out data) && data.originalGravity.hasValue)
                 return data.gravity;
             return bone.Gravity;
         }
@@ -809,9 +807,17 @@ namespace HSPE.AMModules
         private Vector3 GetForce(DynamicBone_Ver02 bone)
         {
             BoobData data;
-            if (this._dirtyDynamicBones.TryGetValue(bone, out data))
+            if (this._dirtyDynamicBones.TryGetValue(bone, out data) && data.originalForce.hasValue)
                 return data.force;
             return bone.Force;
+        }
+
+        private void SetEnabled(DynamicBone_Ver02 bone, bool e)
+        {
+            BoobData data = this.SetDirty(bone);
+            if (data.originalEnabled.hasValue == false)
+                data.originalEnabled = bone.enabled;
+            data.enabled = e;
         }
 
         private void SetGravity(DynamicBone_Ver02 bone, Vector3 gravity)
@@ -819,7 +825,7 @@ namespace HSPE.AMModules
             BoobData data = this.SetDirty(bone);
             if (data.originalGravity.hasValue == false)
                 data.originalGravity = bone.Gravity;
-            data.gravity.value = gravity;
+            data.gravity = gravity;
         }
 
         private void SetForce(DynamicBone_Ver02 bone, Vector3 force)
@@ -827,7 +833,7 @@ namespace HSPE.AMModules
             BoobData data = this.SetDirty(bone);
             if (data.originalForce.hasValue == false)
                 data.originalForce = bone.Force;
-            data.force.value = force;
+            data.force = force;
         }
 
         private bool IsDirty(DynamicBone_Ver02 boob)
@@ -851,10 +857,11 @@ namespace HSPE.AMModules
             if (this.IsDirty(boob))
             {
                 BoobData data = this._dirtyDynamicBones[boob];
-                if (data.gravity.hasValue)
-                    data.gravity.Reset();
-                if (data.force.hasValue)
-                    data.force.Reset();
+                if (data.originalEnabled.hasValue)
+                {
+                    boob.enabled = data.originalEnabled;
+                    data.originalEnabled.Reset();
+                }
                 if (data.originalGravity.hasValue)
                 {
                     boob.Gravity = data.originalGravity;
@@ -899,7 +906,7 @@ namespace HSPE.AMModules
                     this._lastDynamicBoneGravity = this.GetGravity(this._rightBoob);
                 }
 
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                 Vector3 leftButtCheekRaycastPos = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, Vector3.Project(this._leftButtCheek.Bones[1].position - Camera.main.transform.position, Camera.main.transform.forward).magnitude));
                 if ((leftButtCheekRaycastPos - this._leftButtCheek.Bones[1].position).sqrMagnitude < (_dragRadius * _dragRadius))
                 {
@@ -921,7 +928,6 @@ namespace HSPE.AMModules
                     this._lastDynamicBoneGravity = this.GetGravity(this._rightButtCheek);
                 }
 #endif
-                MainWindow._self.SetNoControlCondition();
             }
             else if (Input.GetMouseButton(0) && this.isDraggingDynamicBone)
             {
@@ -935,7 +941,7 @@ namespace HSPE.AMModules
                     case DynamicBoneDragType.RightBoob:
                         db = this._rightBoob;
                         break;
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                     case DynamicBoneDragType.LeftButtCheek:
                         db = this._leftButtCheek;
                         break;
@@ -954,17 +960,17 @@ namespace HSPE.AMModules
         {
             if (_debugLines != null)
             {
-                bool flag = GizmosEnabled(self);
+                bool flag = self != null && self.GizmosEnabled();
                 _debugLines.SetActive(flag);
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                 _debugLinesButt.SetActive(flag);
 #endif
             }
         }
 
-        private static bool GizmosEnabled(BoobsEditor self)
+        private bool GizmosEnabled()
         {
-            return self != null && self._isEnabled && PoseController._drawAdvancedMode && self._parent != null;
+            return this._isEnabled && PoseController._drawAdvancedMode && this._parent != null;
         }
 
         #endregion
@@ -974,6 +980,26 @@ namespace HSPE.AMModules
         {
             public static void Populate()
             {
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "leftBoobEnabled",
+                        name: "Left Boob Enabled",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            BoobsEditor p = ((BoobsEditor)parameter);
+                            if (p.GetEnabled(p._leftBoob) != (bool)leftValue)
+                                p.SetEnabled(((BoobsEditor)parameter)._leftBoob, (bool)leftValue);
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetEnabled(((BoobsEditor)parameter)._leftBoob),
+                        readValueFromXml: (parameter, node) => node.ReadBool("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (bool)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                        );
                 ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
                         owner: HSPE._name,
                         id: "leftBoobGravity",
@@ -999,6 +1025,26 @@ namespace HSPE.AMModules
                         getValue: (oci, parameter) => ((BoobsEditor)parameter).GetForce(((BoobsEditor)parameter)._leftBoob),
                         readValueFromXml: (parameter, node) => node.ReadVector3("value"),
                         writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "rightBoobEnabled",
+                        name: "Right Boob Enabled",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            BoobsEditor p = ((BoobsEditor)parameter);
+                            if (p.GetEnabled(p._rightBoob) != (bool)leftValue)
+                                p.SetEnabled(((BoobsEditor)parameter)._rightBoob, (bool)leftValue);
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetEnabled(((BoobsEditor)parameter)._rightBoob),
+                        readValueFromXml: (parameter, node) => node.ReadBool("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (bool)o),
                         getParameter: GetParameter,
                         readParameterFromXml: null,
                         writeParameterToXml: null,
@@ -1034,6 +1080,108 @@ namespace HSPE.AMModules
                         writeParameterToXml: null,
                         checkIntegrity: CheckIntegrity
                 );
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "leftButtEnabled",
+                        name: "Left Butt Enabled",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            BoobsEditor p = ((BoobsEditor)parameter);
+                            if (p.GetEnabled(p._leftButtCheek) != (bool)leftValue)
+                                p.SetEnabled(((BoobsEditor)parameter)._leftButtCheek, (bool)leftValue);
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetEnabled(((BoobsEditor)parameter)._leftButtCheek),
+                        readValueFromXml: (parameter, node) => node.ReadBool("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (bool)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                        );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "leftButtGravity",
+                        name: "Left Butt Gravity",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((BoobsEditor)parameter).SetGravity(((BoobsEditor)parameter)._leftButtCheek, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetGravity(((BoobsEditor)parameter)._leftButtCheek),
+                        readValueFromXml: (parameter, node) => node.ReadVector3("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                        );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "leftButtForce",
+                        name: "Left Butt Force",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((BoobsEditor)parameter).SetForce(((BoobsEditor)parameter)._leftButtCheek, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetForce(((BoobsEditor)parameter)._leftButtCheek),
+                        readValueFromXml: (parameter, node) => node.ReadVector3("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "rightButtEnabled",
+                        name: "Right Butt Enabled",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            BoobsEditor p = ((BoobsEditor)parameter);
+                            if (p.GetEnabled(p._rightButtCheek) != (bool)leftValue)
+                                p.SetEnabled(((BoobsEditor)parameter)._rightButtCheek, (bool)leftValue);
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetEnabled(((BoobsEditor)parameter)._rightButtCheek),
+                        readValueFromXml: (parameter, node) => node.ReadBool("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (bool)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "rightButtGravity",
+                        name: "Right Butt Gravity",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((BoobsEditor)parameter).SetGravity(((BoobsEditor)parameter)._rightButtCheek, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetGravity(((BoobsEditor)parameter)._rightButtCheek),
+                        readValueFromXml: (parameter, node) => node.ReadVector3("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                );
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "rightButtForce",
+                        name: "Right Butt Force",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((BoobsEditor)parameter).SetForce(((BoobsEditor)parameter)._rightButtCheek, Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor)),
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: IsCompatibleWithTarget,
+                        getValue: (oci, parameter) => ((BoobsEditor)parameter).GetForce(((BoobsEditor)parameter)._rightButtCheek),
+                        readValueFromXml: (parameter, node) => node.ReadVector3("value"),
+                        writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
+                        getParameter: GetParameter,
+                        readParameterFromXml: null,
+                        writeParameterToXml: null,
+                        checkIntegrity: CheckIntegrity
+                );
+#endif                
             }
 
             private static bool CheckIntegrity(ObjectCtrlInfo oci, object parameter, object leftValue, object rightValue)

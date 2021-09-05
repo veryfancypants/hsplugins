@@ -1,6 +1,6 @@
-﻿#if HONEYSELECT || PLAYHOME
+﻿#if IPA
 using IllusionPlugin;
-#elif KOIKATSU || AISHOUJO
+#elif BEPINEX
 using System.IO;
 using BepInEx;
 using BepInEx.Configuration;

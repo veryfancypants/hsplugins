@@ -38,11 +38,15 @@ namespace Timeline
         internal const string _ownerId = "Timeline";
         #endregion
 
-        #if IPA
+#if IPA
         public override string Name { get { return _name; } }
         public override string Version { get { return _version; } }
         public override string[] Filter { get { return new[] { "StudioNEO_32", "StudioNEO_64" }; } }
-        #endif
+#endif
+
+        public static float playbackTime { get; set; }
+        public static float duration { get; set; }
+        public static bool isPlaying { get; set; }
 
         #region Private Types
         private class HeaderDisplay
@@ -436,6 +440,9 @@ namespace Timeline
                 });
             }
         }
+
+        public static void Play() { }
+
         #endregion
 
         #region Private Methods

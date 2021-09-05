@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\ILMerge.3.0.29\build\ILMerge.props" Condition="Exists('..\packages\ILMerge.3.0.29\build\ILMerge.props')" />
+  <Import Project="..\packages\ILMerge.3.0.40\build\ILMerge.props" Condition="Exists('..\packages\ILMerge.3.0.40\build\ILMerge.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">HS</Configuration>
@@ -23,7 +23,7 @@
         <PlatformTarget>AnyCPU</PlatformTarget>
         <ErrorReport>prompt</ErrorReport>
         <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-        <DefineConstants>HONEYSELECT</DefineConstants>
+        <DefineConstants>HONEYSELECT;IPA</DefineConstants>
         <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
         <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
       </PropertyGroup>
@@ -35,7 +35,7 @@
         <PlatformTarget>AnyCPU</PlatformTarget>
         <ErrorReport>prompt</ErrorReport>
         <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-        <DefineConstants>PLAYHOME</DefineConstants>
+        <DefineConstants>PLAYHOME;IPA</DefineConstants>
         <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
         <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
       </PropertyGroup>
@@ -47,7 +47,7 @@
         <PlatformTarget>AnyCPU</PlatformTarget>
         <ErrorReport>prompt</ErrorReport>
         <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-        <DefineConstants>KOIKATSU</DefineConstants>
+        <DefineConstants>KOIKATSU;BEPINEX</DefineConstants>
         <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
         <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
       </PropertyGroup>
@@ -59,16 +59,24 @@
         <PlatformTarget>AnyCPU</PlatformTarget>
         <ErrorReport>prompt</ErrorReport>
         <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-        <DefineConstants>AISHOUJO</DefineConstants>
+        <DefineConstants>AISHOUJO;BEPINEX</DefineConstants>
+        <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">
+      <PropertyGroup>
+        <AssemblyName>HS2PE</AssemblyName>
+        <OutputPath>bin\HS2\</OutputPath>
+        <PlatformTarget>AnyCPU</PlatformTarget>
+        <ErrorReport>prompt</ErrorReport>
+        <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+        <DefineConstants>HONEYSELECT2;BEPINEX</DefineConstants>
         <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
       </PropertyGroup>
     </When>
   </Choose>
   <PropertyGroup>
     <StartupObject />
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'AI|AnyCPU'">
-    <DefineConstants>AISHOUJO,BEPINEX</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\ToolBox\GenericPlugin.cs">
@@ -116,21 +124,6 @@
     <Compile Include="PoseController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="HSPE.cs" />
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-    <Compile Include="Properties\ResourcesAI.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>ResourcesAI.resx</DependentUpon>
-    </Compile>
-    <Compile Include="Properties\ResourcesKOI.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>ResourcesKOI.resx</DependentUpon>
-    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\UIUtility\UIUtility.csproj">
@@ -141,9 +134,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="Resources\aiperesources.unity3d" />
-    <None Include="Resources\hsperesources.unity3d" />
-    <None Include="Resources\kkperesources.unity3d" />
     <None Include="ILMergeConfig.json" />
   </ItemGroup>
   <Choose>
@@ -154,6 +144,9 @@
           <Name>HSExtSave</Name>
           <Private>False</Private>
         </ProjectReference>
+      </ItemGroup>
+      <ItemGroup>
+        <EmbeddedResource Include="Resources\HSPEResources.unity3d" />
       </ItemGroup>
       <ItemGroup>
         <Reference Include="0Harmony">
@@ -210,6 +203,9 @@
         </ProjectReference>
       </ItemGroup>
       <ItemGroup>
+        <EmbeddedResource Include="Resources\HSPEResources.unity3d" />
+      </ItemGroup>
+      <ItemGroup>
         <Reference Include="0Harmony">
           <HintPath>..\Other Dependencies\0Harmony.dll</HintPath>
         </Reference>
@@ -255,6 +251,9 @@
       </ItemGroup>
     </When>
     <When Condition=" '$(Configuration)' == 'KOI' ">
+      <ItemGroup>
+        <EmbeddedResource Include="Resources\KKPEResources.unity3d" />
+      </ItemGroup>
       <ItemGroup>
         <Reference Include="0Harmony">
           <HintPath>D:\Program Files (x86)\Koikatu\BepInEx\core\0Harmony.dll</HintPath>
@@ -308,16 +307,19 @@
     </When>
     <When Condition=" '$(Configuration)' == 'AI' ">
       <ItemGroup>
+        <EmbeddedResource Include="Resources\AIPEResources.unity3d" />
+      </ItemGroup>
+      <ItemGroup>
         <Reference Include="0Harmony">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\core\0Harmony.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\core\0Harmony20.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="Assembly-CSharp">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\Assembly-CSharp.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="Assembly-CSharp-firstpass">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="BepInEx">
@@ -329,77 +331,127 @@
           <Private>False</Private>
         </Reference>
         <Reference Include="System">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\System.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\System.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System.Xml">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\System.Xml.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\System.Xml.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System.Xml.Linq">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\System.Xml.Linq.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\System.Xml.Linq.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="Unity.TextMeshPro">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Unity.TextMeshPro.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.IMGUIModule">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.UIModule">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.UIModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.AssetBundleModule">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.TextRenderingModule">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.UI">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.UI.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.UI.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition=" '$(Configuration)' == 'HS2' ">
+      <ItemGroup>
+        <EmbeddedResource Include="Resources\HS2PEResources.unity3d" />
+      </ItemGroup>
+      <ItemGroup>
+        <Reference Include="0Harmony">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\BepInEx\core\0Harmony.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="Assembly-CSharp">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\Assembly-CSharp.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="Assembly-CSharp-firstpass">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="BepInEx">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\BepInEx\core\BepInEx.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="AI_ExtensibleSaveFormat">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\BepInEx\plugins\HS2_BepisPlugins\HS2_ExtensibleSaveFormat.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="IL">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\IL.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="System">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\System.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="System.Xml">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\System.Xml.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="System.Xml.Linq">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\System.Xml.Linq.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="Unity.TextMeshPro">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.IMGUIModule">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.UIModule">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.AssetBundleModule">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.TextRenderingModule">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.UI">
+          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.UI.dll</HintPath>
           <Private>False</Private>
         </Reference>
       </ItemGroup>
     </When>
   </Choose>
-  <ItemGroup Condition=" '$(Configuration)' == 'HS' ">
-    <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup Condition=" '$(Configuration)' == 'PH' ">
-    <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup Condition=" '$(Configuration)' == 'KOI' ">
-    <EmbeddedResource Include="Properties\ResourcesKOI.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>ResourcesKOI.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup Condition=" '$(Configuration)' == 'AI' ">
-    <EmbeddedResource Include="Properties\ResourcesAI.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>ResourcesAI.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup Condition=" '$(Configuration)' == 'HS' ">
     <PostBuildEvent>copy /Y "$(TargetDir)ILMerge\$(TargetName)$(TargetExt)" "D:\Program Files (x86)\HoneySelect\Plugins"</PostBuildEvent>
@@ -413,12 +465,15 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'AI' ">
     <PostBuildEvent>copy /Y "$(TargetDir)ILMerge\$(TargetName)$(TargetExt)" "C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\plugins"</PostBuildEvent>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'HS2' ">
+    <PostBuildEvent>copy /Y "$(TargetDir)ILMerge\$(TargetName)$(TargetExt)" "D:\Program Files (x86)\HoneySelect2\BepInEx\plugins"</PostBuildEvent>
+  </PropertyGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>Ce projet fait référence à des packages NuGet qui sont manquants sur cet ordinateur. Utilisez l'option de restauration des packages NuGet pour les télécharger. Pour plus d'informations, consultez http://go.microsoft.com/fwlink/?LinkID=322105. Le fichier manquant est : {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\ILMerge.3.0.29\build\ILMerge.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\ILMerge.3.0.29\build\ILMerge.props'))" />
     <Error Condition="!Exists('..\ILMerge.MSBuild.Task\build\ILMerge.MSBuild.Task.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\ILMerge.MSBuild.Task\build\ILMerge.MSBuild.Task.targets'))" />
+    <Error Condition="!Exists('..\packages\ILMerge.3.0.40\build\ILMerge.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\ILMerge.3.0.40\build\ILMerge.props'))" />
   </Target>
   <Import Project="..\ILMerge.MSBuild.Task\build\ILMerge.MSBuild.Task.targets" Condition="Exists('..\ILMerge.MSBuild.Task\build\ILMerge.MSBuild.Task.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

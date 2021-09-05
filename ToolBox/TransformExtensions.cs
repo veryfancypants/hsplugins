@@ -139,7 +139,7 @@ namespace ToolBox.Extensions {
             return res;
         }
 
-#if !AISHOUJO
+#if !AISHOUJO && !HONEYSELECT2
         public static IEnumerable<Transform> Children(this Transform self)
         {
             foreach (Transform t in self)

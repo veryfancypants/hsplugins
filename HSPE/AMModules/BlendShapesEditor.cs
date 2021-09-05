@@ -7,16 +7,16 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
-#if HONEYSELECT || PLAYHOME
+#if IPA
 using Harmony;
-#else
+#elif BEPINEX
 using HarmonyLib;
 #endif
 using Studio;
 using ToolBox;
 using ToolBox.Extensions;
 using UnityEngine;
-#if HONEYSELECT || KOIKATSU || AISHOUJO
+#if HONEYSELECT || KOIKATSU || AISHOUJO || HONEYSELECT2
 using InstanceDict = System.Collections.Generic.Dictionary<FaceBlendShape, HSPE.AMModules.BlendShapesEditor>;
 using InstancePair = System.Collections.Generic.KeyValuePair<FaceBlendShape, HSPE.AMModules.BlendShapesEditor>;
 #elif PLAYHOME
@@ -59,11 +59,17 @@ namespace HSPE.AMModules
             {"cf_O_namida_M",  "Tears M"},
             {"cf_O_namida_S",  "Tears S"},
 #elif AISHOUJO
-                {"o_eyelashes",  "Eyelashes"},
-                {"o_head",  "Head"},
-                {"o_namida",  "Tears"},
-                {"o_tang",  "Tongue"},
-                {"o_tooth",  "Teeth"},
+            {"o_eyelashes",  "Eyelashes"},
+            {"o_head",  "Head"},
+            {"o_namida",  "Tears"},
+            {"o_tang",  "Tongue"},
+            {"o_tooth",  "Teeth"},
+#elif HONEYSELECT2
+            {"o_eyelashes",  "Eyelashes"},
+            {"o_head",  "Head"},
+            {"o_namida",  "Tears"},
+            {"o_tang",  "Tongue"},
+            {"o_tooth",  "Teeth"}, 
 #endif
         };
         private static readonly string _presetsPath;
@@ -77,7 +83,7 @@ namespace HSPE.AMModules
         private static readonly Dictionary<int, string> _maleSeparators = new Dictionary<int, string>();
         private static readonly int _femaleEyesComponentsCount;
         private static readonly int _maleEyesComponentsCount;
-        #endregion
+        #endregion 
 
         #region Private Types
         private class SkinnedMeshRendererData
@@ -128,7 +134,7 @@ namespace HSPE.AMModules
                     editor.FaceBlendShapeOnPostLateUpdate();
             }
         }
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
         [HarmonyPatch(typeof(FaceBlendShape), "OnLateUpdate")]
         private class FaceBlendShape_Patches
         {
@@ -196,7 +202,7 @@ namespace HSPE.AMModules
             _maleSeparators = _femaleSeparators;
             _femaleEyesComponentsCount = 28;
             _maleEyesComponentsCount = _femaleEyesComponentsCount;
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             _femaleSeparators.Add(0, "Eyes");
             _femaleSeparators.Add(16, "Eyebrows");
             _femaleSeparators.Add(26, "Mouth");
@@ -605,14 +611,14 @@ namespace HSPE.AMModules
                 if (this._target.type == GenericOCITarget.Type.Character)
                 {
                     xmlWriter.WriteAttributeString("eyesPtn", XmlConvert.ToString(this._target.ociChar.charInfo.GetEyesPtn()));
-#if HONEYSELECT || KOIKATSU || AISHOUJO
+#if HONEYSELECT || KOIKATSU || AISHOUJO || HONEYSELECT2
                     xmlWriter.WriteAttributeString("eyesOpen", XmlConvert.ToString(this._target.ociChar.charInfo.GetEyesOpenMax()));
 #elif PLAYHOME
                     xmlWriter.WriteAttributeString("eyesOpen", XmlConvert.ToString(this._target.ociChar.charInfo.fileStatus.eyesOpenMax));
 #endif
                     xmlWriter.WriteAttributeString("mouthPtn", XmlConvert.ToString(this._target.ociChar.charInfo.GetMouthPtn()));
                     xmlWriter.WriteAttributeString("mouthOpen", XmlConvert.ToString(this._target.ociChar.oiCharInfo.mouthOpen));
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                     xmlWriter.WriteAttributeString("eyebrowsPtn", XmlConvert.ToString(this._target.ociChar.charInfo.GetEyebrowPtn()));
                     xmlWriter.WriteAttributeString("eyebrowsOpen", XmlConvert.ToString(this._target.ociChar.charInfo.GetEyebrowOpenMax()));
 #endif
@@ -653,7 +659,7 @@ namespace HSPE.AMModules
                 {
                     if (skinnedMeshesNode.Attributes["eyesPtn"] != null)
                     {
-#if HONEYSELECT || KOIKATSU || AISHOUJO
+#if HONEYSELECT || KOIKATSU || AISHOUJO || HONEYSELECT2
                         this._target.ociChar.charInfo.ChangeEyesPtn(XmlConvert.ToInt32(skinnedMeshesNode.Attributes["eyesPtn"].Value), false);
 #elif PLAYHOME
                         this._target.ociChar.charInfo.ChangeEyesPtn(XmlConvert.ToInt32(skinnedMeshesNode.Attributes["eyesPtn"].Value));
@@ -663,7 +669,7 @@ namespace HSPE.AMModules
                         this._target.ociChar.ChangeEyesOpen(XmlConvert.ToSingle(skinnedMeshesNode.Attributes["eyesOpen"].Value));
                     if (skinnedMeshesNode.Attributes["mouthPtn"] != null)
                     {
-#if HONEYSELECT || KOIKATSU || AISHOUJO
+#if HONEYSELECT || KOIKATSU || AISHOUJO || HONEYSELECT2
                         this._target.ociChar.charInfo.ChangeMouthPtn(XmlConvert.ToInt32(skinnedMeshesNode.Attributes["mouthPtn"].Value), false);
 #elif PLAYHOME
                         this._target.ociChar.charInfo.ChangeMouthPtn(XmlConvert.ToInt32(skinnedMeshesNode.Attributes["mouthPtn"].Value));
@@ -671,7 +677,7 @@ namespace HSPE.AMModules
                     }
                     if (skinnedMeshesNode.Attributes["mouthOpen"] != null)
                         this._target.ociChar.ChangeMouthOpen(XmlConvert.ToSingle(skinnedMeshesNode.Attributes["mouthOpen"].Value));
-#if KOIKATSU || AISHOUJO
+#if KOIKATSU || AISHOUJO || HONEYSELECT2
                     if (skinnedMeshesNode.Attributes["eyebrowsPtn"] != null)
                         this._target.ociChar.charInfo.ChangeEyebrowPtn(XmlConvert.ToInt32(skinnedMeshesNode.Attributes["eyebrowsPtn"].Value), false);
                     if (skinnedMeshesNode.Attributes["eyebrowsOpen"] != null)
@@ -867,7 +873,7 @@ namespace HSPE.AMModules
             _instanceByFaceBlendShape.Add(this._target.ociChar.charInfo.human, this);
 #elif KOIKATSU
             _instanceByFaceBlendShape.Add(this._target.ociChar.charInfo.fbsCtrl, this);
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             _instanceByFaceBlendShape.Add(this._target.ociChar.charInfo.fbsCtrl, this);
 #endif
             foreach (SkinnedMeshRenderer renderer in this._skinnedMeshRenderers)
@@ -877,7 +883,7 @@ namespace HSPE.AMModules
 #if HONEYSELECT || KOIKATSU || PLAYHOME
                     case "cf_O_head":
                     case "cf_O_face":
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
                     case "o_head":
 #endif
                         this._headRenderer = renderer;
@@ -900,7 +906,7 @@ namespace HSPE.AMModules
                     case "cf_O_namida_L":
                     case "cf_O_namida_M":
                     case "cf_O_namida_S":
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
                     case "o_eyelashes":
                     case "o_namida":
                     case "o_head":
@@ -915,7 +921,7 @@ namespace HSPE.AMModules
                         break;
                 }
             }
-
+            /*
             foreach (KeyValuePair<SkinnedMeshRenderer, SkinnedMeshRendererWrapper> pair in this._links)
             {
                 foreach (KeyValuePair<SkinnedMeshRenderer, SkinnedMeshRendererWrapper> pair2 in this._links)
@@ -924,6 +930,7 @@ namespace HSPE.AMModules
                         pair.Value.links.Add(pair2.Value);
                 }
             }
+            */
         }
 
         private void ResetAll()
@@ -1213,95 +1220,13 @@ namespace HSPE.AMModules
                         },
                         interpolateAfter: null,
                         isCompatibleWithTarget: oci => oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && oci.guideObject.transformTarget.GetComponent<PoseController>() != null,
-                        getValue: (oci, parameter) =>
-                        {
-                            GroupParameter p = (GroupParameter)parameter;
-                            SkinnedMeshRenderer renderer = p.renderer;
-                            float[] value = new float[renderer.sharedMesh.blendShapeCount];
-                            for (int i = 0; i < value.Length; ++i)
-                                value[i] = renderer.GetBlendShapeWeight(i);
-                            return value;
-                        },
-                        readValueFromXml: (parameter, node) =>
-                        {
-                            GroupParameter p = (GroupParameter)parameter;
-                            SkinnedMeshRenderer renderer = p.renderer;
-                            int count = node.ReadInt("valueCount");
-                            if (renderer.sharedMesh.blendShapeCount != count)
-                            {
-                                Dictionary<int, float> tempValue = new Dictionary<int, float>();
-                                for (int i = 0; i < count; i++)
-                                {
-                                    string nameKey = $"name{i}";
-                                    if (node.Attributes[nameKey] != null)
-                                    {
-                                        string n = node.Attributes[nameKey].Value;
-                                        int index = renderer.sharedMesh.GetBlendShapeIndex(n);
-                                        if (index != -1)
-                                        {
-                                            if (tempValue.ContainsKey(index))
-                                                tempValue[index] = node.ReadFloat($"value{i}");
-                                            else
-                                                tempValue.Add(index, node.ReadFloat($"value{i}"));
-                                        }
-                                    }
-                                    else
-                                        tempValue.Add(i, node.ReadFloat($"value{i}"));
-                                }
-                                float[] value = new float[renderer.sharedMesh.blendShapeCount];
-                                for (int i = 0; i < value.Length; i++)
-                                {
-                                    float v;
-                                    if (tempValue.TryGetValue(i, out v))
-                                        value[i] = v;
-                                    else
-                                        value[i] = 0;
-                                }
-                                return value;
-                            }
-                            else
-                            {
-                                float[] value = new float[count];
-                                for (int i = 0; i < value.Length; i++)
-                                    value[i] = node.ReadFloat($"value{i}");
-                                return value;
-                            }
-                        },
-                        writeValueToXml: (parameter, writer, o) =>
-                        {
-                            GroupParameter p = (GroupParameter)parameter;
-                            SkinnedMeshRenderer renderer = p.renderer;
-                            float[] value = (float[])o;
-                            writer.WriteValue("valueCount", value.Length);
-                            for (int i = 0; i < value.Length; i++)
-                            {
-                                writer.WriteValue($"value{i}", value[i]);
-                                writer.WriteAttributeString($"name{i}", renderer.sharedMesh.GetBlendShapeName(i));
-                            }
-                        },
-                        getParameter: oci =>
-                        {
-                            PoseController controller = oci.guideObject.transformTarget.GetComponent<PoseController>();
-                            return new GroupParameter(controller._blendShapesEditor, controller._blendShapesEditor._skinnedMeshTarget);
-                        },
-                        readParameterFromXml: (oci, node) => new GroupParameter(oci.guideObject.transformTarget.GetComponent<PoseController>()._blendShapesEditor, node.Attributes["parameter"].Value),
-                        writeParameterToXml: (oci, writer, o) => writer.WriteAttributeString("parameter", ((GroupParameter)o).rendererPath),
-                        checkIntegrity: (oci, parameter, leftValue, rightValue) =>
-                        {
-                            if (parameter == null || leftValue == null || rightValue == null)
-                                return false;
-                            GroupParameter p = (GroupParameter)parameter;
-                            if (p.editor == null)
-                                return false;
-                            if (p.editor._isBusy)
-                                return true;
-                            SkinnedMeshRenderer renderer = p.renderer;
-                            if (renderer == null ||
-                                renderer.sharedMesh.blendShapeCount != ((float[])leftValue).Length ||
-                                renderer.sharedMesh.blendShapeCount != ((float[])rightValue).Length)
-                                return false;
-                            return true;
-                        },
+                        getValue: GetGroupValue,
+                        readValueFromXml: ReadGroupValueFromXml,
+                        writeValueToXml: WriteGroupValueToXml,
+                        getParameter: GetGroupParameter,
+                        readParameterFromXml: ReadGroupParameterFromXml,
+                        writeParameterToXml: WriteGroupParameterToXml,
+                        checkIntegrity: CheckGroupIntegrity,
                         getFinalName: (name, oci, parameter) =>
                         {
                             GroupParameter p = (GroupParameter)parameter;
@@ -1310,48 +1235,242 @@ namespace HSPE.AMModules
                                 skinnedMeshName = p.renderer.name;
                             return $"BS ({skinnedMeshName})";
                         });
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "groupBlendShapeLink",
+                        name: "BlendShape (Group, Link)",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            GroupParameter p = (GroupParameter)parameter;
+
+                            if (p.editor._isBusy == false)
+                            {
+                                SkinnedMeshRenderer renderer = p.renderer;
+                                float[] left = (float[])leftValue;
+                                float[] right = (float[])rightValue;
+                                int targetLinkMaxCount = p.editor._target.isFemale ? _femaleEyesComponentsCount : _maleEyesComponentsCount;
+                                for (int i = 0; i < left.Length; i++)
+                                {
+                                    float newBlendShapeWeight = Mathf.LerpUnclamped(left[i], right[i], factor);
+                                    p.editor.SetBlendShapeWeight(renderer, i, newBlendShapeWeight);
+                                    if (i < targetLinkMaxCount)
+                                    {
+                                        SkinnedMeshRendererWrapper wrapper;
+                                        if (p.editor._links.TryGetValue(renderer, out wrapper))
+                                        {
+                                            foreach (SkinnedMeshRendererWrapper link in wrapper.links)
+                                            {
+                                                if (i < link.renderer.sharedMesh.blendShapeCount)
+                                                    p.editor.SetBlendShapeWeight(link.renderer, i, newBlendShapeWeight);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: oci => oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && oci.guideObject.transformTarget.GetComponent<CharaPoseController>() != null,
+                        getValue: GetGroupValue,
+                        readValueFromXml: ReadGroupValueFromXml,
+                        writeValueToXml: WriteGroupValueToXml,
+                        getParameter: GetGroupParameter,
+                        readParameterFromXml: ReadGroupParameterFromXml,
+                        writeParameterToXml: WriteGroupParameterToXml,
+                        checkIntegrity: CheckGroupIntegrity,
+                        getFinalName: (name, oci, parameter) =>
+                        {
+                            GroupParameter p = (GroupParameter)parameter;
+                            string skinnedMeshName;
+                            if (_skinnedMeshAliases.TryGetValue(p.renderer.name, out skinnedMeshName) == false)
+                                skinnedMeshName = p.renderer.name;
+                            return $"BS ({skinnedMeshName}, L)";
+                        });
 
                 //TODO maybe do that, or maybe not, idk
-                //ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
-                //        owner: HSPE._name,
-                //        id: "everythingBlendShape",
-                //        name: "BlendShape (Everything)",
-                //        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
-                //        {
-                //            HashedPair<BlendShapesEditor, SkinnedMeshRenderer> pair = (HashedPair<BlendShapesEditor, SkinnedMeshRenderer>)parameter;
-                //            float[] left = (float[])leftValue;
-                //            float[] right = (float[])rightValue;
-                //            for (int i = 0; i < left.Length; i++)
-                //                pair.key.SetBlendShapeWeight(pair.value, i, Mathf.LerpUnclamped(left[i], right[i], factor));
-                //        },
-                //        interpolateAfter: null,
-                //        isCompatibleWithTarget: oci => oci != null && oci.guideObject.transformTarget.GetComponent<PoseController>() != null,
-                //        getValue: (oci, parameter) =>
-                //        {
-                //            HashedPair<BlendShapesEditor, SkinnedMeshRenderer> pair = (HashedPair<BlendShapesEditor, SkinnedMeshRenderer>)parameter;
-                //            float[] value = new float[pair.value.sharedMesh.blendShapeCount];
-                //            for (int i = 0; i < value.Length; ++i)
-                //                value[i] = pair.value.GetBlendShapeWeight(i);
-                //            return value;
-                //        },
-                //        readValueFromXml: node =>
-                //        {
-                //            float[] value = new float[node.ReadInt("valueCount")];
-                //            for (int i = 0; i < value.Length; i++)
-                //                value[i] = node.ReadFloat($"value{i}");
-                //            return value;
-                //        },
-                //        writeValueToXml: (writer, o) =>
-                //        {
-                //            float[] value = (float[])o;
-                //            writer.WriteValue("valueCount", value.Length);
-                //            for (int i = 0; i < value.Length; i++)
-                //                writer.WriteValue($"value{i}", value[i]);
-                //        },
-                //        getParameter: oci => oci.guideObject.transformTarget.GetComponent<PoseController>()._blendShapesEditor,
-                //        checkIntegrity: (oci, parameter) => parameter != null,
-                //        getFinalName: (name, oci, parameter) => "BS (Everything)");
+                ToolBox.TimelineCompatibility.AddInterpolableModelDynamic(
+                        owner: HSPE._name,
+                        id: "everythingBlendShape",
+                        name: "BlendShape (Everything)",
+                        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                        {
+                            UnityEngine.Debug.LogError("BlendShape_interpolateBefore");
+                            BlendShapesEditor editor = (BlendShapesEditor)parameter;
+                            Dictionary<string,string> left = (Dictionary<string,string>)leftValue;
+                            Dictionary<string,string> right = (Dictionary<string,string>)rightValue;
+                            foreach (var x in left)
+                            {
+                                var name = x.Key;
+                                var xs = x.Value.Split(' ');
+                                var ys = right[name].Split(' ');
+                                var rend = editor._skinnedMeshRenderersByPath[name];
+                                int nshapes = rend.sharedMesh.blendShapeCount;
+                                if (nshapes != xs.Length)
+                                {
+                                    UnityEngine.Debug.LogError("ERROR: value has " + xs.Length + " fields, but the renderer " + name + " has " + nshapes + " blendshape parameters");
+                                }
+                                for(int i = 0; i<nshapes && i<xs.Length; i++)
+                                    editor.SetBlendShapeWeight(rend, i, Mathf.LerpUnclamped(float.Parse(xs[i]), float.Parse(ys[i]), factor));
+                            }
+                        },
+                        interpolateAfter: null,
+                        isCompatibleWithTarget: oci =>
+                        {
+                            UnityEngine.Debug.LogError("isCompatible");
+                            return oci != null && oci.guideObject.transformTarget.GetComponent<PoseController>() != null;
+                        },
+                        getValue: (oci, parameter) =>
+                        {
+                            BlendShapesEditor editor = (BlendShapesEditor)parameter;
+                            var val = new Dictionary<string, string>();
+                            foreach (var x in editor._skinnedMeshRenderersByPath)
+                            {
+                                var rend = x.Value;
+                                if (rend.sharedMesh.blendShapeCount == 0)
+                                    continue;
+                                string s = "";
+                                for (int i = 0; i < rend.sharedMesh.blendShapeCount; ++i)
+                                {
+                                    if (i != 0)
+                                        s += " ";
+                                    s += rend.GetBlendShapeWeight(i);
+                                }
+                                val[x.Key] = s;
+                            }
+                            return val;
+                        },
+                        readValueFromXml: (parameter, node) =>
+                        {
+                            var nd = (XmlNode)node;
+                            var value = new Dictionary<string, string>();
+                            var s = node.InnerText;
+                            var v = s.Split('|');
+                            foreach (var x in v)
+                            {
+                                char[] sep = { ' ' };
+                                var y = x.Split(sep, 2);
+                                value[y[0]] = y[1];
+                            }
+                            return value;
+                        },
+                        writeValueToXml: (parameter, writer, o) =>
+                        {
+                            var value = (Dictionary<string, string>)o;
+                            string s = "";
+                            foreach (var x in value)
+                            {
+                                if (s.Length > 0)
+                                    s += '|';
+                                s += x.Key + ' ' + x.Value;
+                            }
+                            writer.WriteString(s);
+                            //for (int i = 0; i < value.Length; i++)
+                            //    writer.WriteValue($"value{i}", value[i]);
+                        },
+                        getParameter: oci =>
+                        {
+                            UnityEngine.Debug.LogError("getParameter");
+                            PoseController controller = oci.guideObject.transformTarget.GetComponent<PoseController>();
+                            return controller._blendShapesEditor;
+                        },
+                        checkIntegrity: (oci, parameter, leftValue, rightValue) => parameter != null,
+                        getFinalName: (name, oci, parameter) => "BS (Everything)");
             }
+             
+            private static object GetGroupParameter(ObjectCtrlInfo oci)
+            {
+                PoseController controller = oci.guideObject.transformTarget.GetComponent<PoseController>();
+                return new GroupParameter(controller._blendShapesEditor, controller._blendShapesEditor._skinnedMeshTarget);
+            }
+
+            private static object GetGroupValue(ObjectCtrlInfo oci, object parameter)
+            {
+                GroupParameter p = (GroupParameter)parameter;
+                SkinnedMeshRenderer renderer = p.renderer;
+                float[] value = new float[renderer.sharedMesh.blendShapeCount];
+                for (int i = 0; i < value.Length; ++i)
+                    value[i] = renderer.GetBlendShapeWeight(i);
+                return value;
+            }
+            private static object ReadGroupValueFromXml(object parameter, XmlNode node)
+            {
+                GroupParameter p = (GroupParameter)parameter;
+                SkinnedMeshRenderer renderer = p.renderer;
+                int count = node.ReadInt("valueCount");
+                if (renderer.sharedMesh.blendShapeCount != count)
+                {
+                    Dictionary<int, float> tempValue = new Dictionary<int, float>();
+                    for (int i = 0; i < count; i++)
+                    {
+                        string nameKey = $"name{i}";
+                        if (node.Attributes[nameKey] != null)
+                        {
+                            string n = node.Attributes[nameKey].Value;
+                            int index = renderer.sharedMesh.GetBlendShapeIndex(n);
+                            if (index != -1)
+                            {
+                                if (tempValue.ContainsKey(index))
+                                    tempValue[index] = node.ReadFloat($"value{i}");
+                                else
+                                    tempValue.Add(index, node.ReadFloat($"value{i}"));
+                            }
+                        }
+                        else
+                            tempValue.Add(i, node.ReadFloat($"value{i}"));
+                    }
+                    float[] value = new float[renderer.sharedMesh.blendShapeCount];
+                    for (int i = 0; i < value.Length; i++)
+                    {
+                        float v;
+                        if (tempValue.TryGetValue(i, out v))
+                            value[i] = v;
+                        else
+                            value[i] = 0;
+                    }
+                    return value;
+                }
+                else
+                {
+                    float[] value = new float[count];
+                    for (int i = 0; i < value.Length; i++)
+                        value[i] = node.ReadFloat($"value{i}");
+                    return value;
+                }
+            }
+            private static void WriteGroupValueToXml(object parameter, XmlTextWriter writer, object o)
+            {
+                GroupParameter p = (GroupParameter)parameter;
+                SkinnedMeshRenderer renderer = p.renderer;
+                float[] value = (float[])o;
+                writer.WriteValue("valueCount", value.Length);
+                for (int i = 0; i < value.Length; i++)
+                {
+                    writer.WriteValue($"value{i}", value[i]);
+                    writer.WriteAttributeString($"name{i}", renderer.sharedMesh.GetBlendShapeName(i));
+                }
+            }
+            private static object ReadGroupParameterFromXml(ObjectCtrlInfo oci, XmlNode node)
+            {
+                return new GroupParameter(oci.guideObject.transformTarget.GetComponent<PoseController>()._blendShapesEditor, node.Attributes["parameter"].Value);
+            }
+            private static void WriteGroupParameterToXml(ObjectCtrlInfo oci, XmlTextWriter writer, object o)
+            {
+                writer.WriteAttributeString("parameter", ((GroupParameter)o).rendererPath);
+            }
+            private static bool CheckGroupIntegrity(ObjectCtrlInfo oci, object parameter, object leftValue, object rightValue)
+            {
+                if (parameter == null || leftValue == null || rightValue == null)
+                    return false;
+                GroupParameter p = (GroupParameter)parameter;
+                if (p.editor == null)
+                    return false;
+                if (p.editor._isBusy)
+                    return true;
+                SkinnedMeshRenderer renderer = p.renderer;
+                if (renderer == null || renderer.sharedMesh.blendShapeCount != ((float[])leftValue).Length || renderer.sharedMesh.blendShapeCount != ((float[])rightValue).Length)
+                    return false;
+                return true;
+            }
+
         }
         #endregion
     }

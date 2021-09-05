@@ -2,7 +2,6 @@
 using System.Xml;
 using Studio;
 using UnityEngine;
-using Vectrosity;
 
 namespace HSPE.AMModules
 {
@@ -18,7 +17,7 @@ namespace HSPE.AMModules
 
         #region Protected Variables
         internal bool _isEnabled = false;
-        protected PoseController _parent;
+        public PoseController _parent;
         #endregion
 
         #region Private Variables
@@ -68,6 +67,7 @@ namespace HSPE.AMModules
 #endif
         public virtual void OnParentage(TreeNodeObject parent, TreeNodeObject child) { }
         public virtual void DrawAdvancedModeChanged() { }
+        public virtual void UpdateGizmos() { }
         #endregion
 
         #region Abstract Methods

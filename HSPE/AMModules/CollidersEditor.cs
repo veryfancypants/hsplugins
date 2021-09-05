@@ -7,6 +7,8 @@ using ToolBox;
 using ToolBox.Extensions;
 using UnityEngine;
 using Vectrosity;
+using AIChara;
+
 #if HONEYSELECT || PLAYHOME || KOIKATSU
 using DynamicBoneColliderBase = DynamicBoneCollider;
 #endif
@@ -20,7 +22,7 @@ namespace HSPE.AMModules
         private static readonly HashSet<string> _loneColliderNames = new HashSet<string>
         {
                 "Collider",
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 "ColliderPlane"
 #endif
         };
@@ -29,10 +31,10 @@ namespace HSPE.AMModules
         #region Private Types
         private class ColliderDebugLines
         {
-            public readonly List<VectorLine> centerCircles;
-            public readonly List<VectorLine> capsCircles;
-            public readonly List<VectorLine> centerLines;
-            public readonly List<VectorLine> capsLines;
+            private readonly List<VectorLine> _centerCircles;
+            private readonly List<VectorLine> _capsCircles;
+            private readonly List<VectorLine> _centerLines;
+            private readonly List<VectorLine> _capsLines;
 
             public ColliderDebugLines()
             {
@@ -44,19 +46,19 @@ namespace HSPE.AMModules
                 position2.x += num;
                 Quaternion orientation = Quaternion.AngleAxis(90f, Vector3.up);
                 Vector3 dir = Vector3.right;
-                this.centerCircles = new List<VectorLine>();
+                this._centerCircles = new List<VectorLine>();
                 for (int i = 1; i < 10; ++i)
                 {
                     VectorLine circle = VectorLine.SetLine(CollidersEditor._colliderColor, new Vector3[37]);
                     circle.MakeCircle(Vector3.Lerp(position1, position2, i / 10f), dir, radius);
-                    this.centerCircles.Add(circle);
+                    this._centerCircles.Add(circle);
                 }
-                this.centerLines = new List<VectorLine>();
+                this._centerLines = new List<VectorLine>();
                 for (int i = 0; i < 8; ++i)
                 {
                     float angle = 360 * (i / 8f) * Mathf.Deg2Rad;
                     Vector3 offset = orientation * (new Vector3(Mathf.Cos(angle), Mathf.Sin(angle))) * radius;
-                    this.centerLines.Add(VectorLine.SetLine(CollidersEditor._colliderColor, position1 + offset, position2 + offset));
+                    this._centerLines.Add(VectorLine.SetLine(CollidersEditor._colliderColor, position1 + offset, position2 + offset));
                 }
                 Vector3[] prev = new Vector3[8];
                 Vector3 prevCenter1 = Vector3.zero;
@@ -66,8 +68,8 @@ namespace HSPE.AMModules
                     float angle = 360 * (i / 8f) * Mathf.Deg2Rad;
                     prev[i] = orientation * (new Vector3(Mathf.Cos(angle), Mathf.Sin(angle))) * radius;
                 }
-                this.capsCircles = new List<VectorLine>();
-                this.capsLines = new List<VectorLine>();
+                this._capsCircles = new List<VectorLine>();
+                this._capsLines = new List<VectorLine>();
                 for (int i = 0; i < 6; ++i)
                 {
                     float v = (i / 5f) * 0.95f;
@@ -77,31 +79,31 @@ namespace HSPE.AMModules
                     Vector3 center2 = position2 + dir * v * radius;
                     VectorLine circle = VectorLine.SetLine(CollidersEditor._colliderColor, new Vector3[37]);
                     circle.MakeCircle(center1, dir, radius2);
-                    this.capsCircles.Add(circle);
+                    this._capsCircles.Add(circle);
 
                     circle = VectorLine.SetLine(CollidersEditor._colliderColor, new Vector3[37]);
                     circle.MakeCircle(center2, dir, radius2);
-                    this.capsCircles.Add(circle);
+                    this._capsCircles.Add(circle);
 
                     if (i != 0)
                         for (int j = 0; j < 8; ++j)
                         {
                             float angle2 = 360 * (j / 8f) * Mathf.Deg2Rad;
                             Vector3 offset = orientation * (new Vector3(Mathf.Cos(angle2), Mathf.Sin(angle2))) * radius2;
-                            this.capsLines.Add(VectorLine.SetLine(CollidersEditor._colliderColor, prevCenter1 + prev[j], center1 + offset));
-                            this.capsLines.Add(VectorLine.SetLine(CollidersEditor._colliderColor, prevCenter2 + prev[j], center2 + offset));
+                            this._capsLines.Add(VectorLine.SetLine(CollidersEditor._colliderColor, prevCenter1 + prev[j], center1 + offset));
+                            this._capsLines.Add(VectorLine.SetLine(CollidersEditor._colliderColor, prevCenter2 + prev[j], center2 + offset));
                             prev[j] = offset;
                         }
                     prevCenter1 = center1;
                     prevCenter2 = center2;
                 }
-                foreach (VectorLine line in this.centerCircles)
+                foreach (VectorLine line in this._centerCircles)
                     line.lineWidth = 2f;
-                foreach (VectorLine line in this.capsCircles)
+                foreach (VectorLine line in this._capsCircles)
                     line.lineWidth = 2f;
-                foreach (VectorLine line in this.centerLines)
+                foreach (VectorLine line in this._centerLines)
                     line.lineWidth = 2f;
-                foreach (VectorLine line in this.capsLines)
+                foreach (VectorLine line in this._capsLines)
                     line.lineWidth = 2f;
             }
 
@@ -139,13 +141,13 @@ namespace HSPE.AMModules
                 dir = collider.transform.TransformDirection(dir);
                 for (int i = 0; i < 9; ++i)
                 {
-                    this.centerCircles[i].MakeCircle(Vector3.Lerp(position1, position2, (i + 1) / 10f), dir, radius);
+                    this._centerCircles[i].MakeCircle(Vector3.Lerp(position1, position2, (i + 1) / 10f), dir, radius);
                 }
                 for (int i = 0; i < 8; ++i)
                 {
                     float angle = 360 * (i / 8f) * Mathf.Deg2Rad;
                     Vector3 offset = orientation * (new Vector3(Mathf.Cos(angle), Mathf.Sin(angle))) * radius;
-                    VectorLine line = this.centerLines[i];
+                    VectorLine line = this._centerLines[i];
                     line.points3[0] = position1 + offset;
                     line.points3[1] = position2 + offset;
                 }
@@ -167,10 +169,10 @@ namespace HSPE.AMModules
                     float radius2 = radius * Mathf.Cos(angle);
                     Vector3 center1 = position1 - dir * v * radius;
                     Vector3 center2 = position2 + dir * v * radius;
-                    VectorLine circle = this.capsCircles[k++];
+                    VectorLine circle = this._capsCircles[k++];
                     circle.MakeCircle(center1, dir, radius2);
 
-                    circle = this.capsCircles[k++];
+                    circle = this._capsCircles[k++];
                     circle.MakeCircle(center2, dir, radius2);
 
                     if (i != 0)
@@ -178,11 +180,11 @@ namespace HSPE.AMModules
                         {
                             float angle2 = 360 * (j / 8f) * Mathf.Deg2Rad;
                             Vector3 offset = orientation * (new Vector3(Mathf.Cos(angle2), Mathf.Sin(angle2))) * radius2;
-                            VectorLine line = this.capsLines[l++];
+                            VectorLine line = this._capsLines[l++];
                             line.points3[0] = prevCenter1 + prev[j];
                             line.points3[1] = center1 + offset;
 
-                            line = this.capsLines[l++];
+                            line = this._capsLines[l++];
                             line.points3[0] = prevCenter2 + prev[j];
                             line.points3[1] = center2 + offset;
 
@@ -197,11 +199,11 @@ namespace HSPE.AMModules
             {
                 for (int i = 0; i < 9; ++i)
                 {
-                    this.centerCircles[i].Draw();
+                    this._centerCircles[i].Draw();
                 }
                 for (int i = 0; i < 8; ++i)
                 {
-                    VectorLine line = this.centerLines[i];
+                    VectorLine line = this._centerLines[i];
                     line.Draw();
                 }
 
@@ -209,19 +211,19 @@ namespace HSPE.AMModules
                 int l = 0;
                 for (int i = 0; i < 6; ++i)
                 {
-                    VectorLine circle = this.capsCircles[k++];
+                    VectorLine circle = this._capsCircles[k++];
                     circle.Draw();
 
-                    circle = this.capsCircles[k++];
+                    circle = this._capsCircles[k++];
                     circle.Draw();
 
                     if (i != 0)
                         for (int j = 0; j < 8; ++j)
                         {
-                            VectorLine line = this.capsLines[l++];
+                            VectorLine line = this._capsLines[l++];
                             line.Draw();
 
-                            line = this.capsLines[l++];
+                            line = this._capsLines[l++];
                             line.Draw();
                         }
                 }
@@ -229,25 +231,25 @@ namespace HSPE.AMModules
 
             public void SetActive(bool active)
             {
-                foreach (VectorLine line in this.centerCircles)
+                foreach (VectorLine line in this._centerCircles)
                     line.active = active;
-                foreach (VectorLine line in this.capsCircles)
+                foreach (VectorLine line in this._capsCircles)
                     line.active = active;
-                foreach (VectorLine line in this.centerLines)
+                foreach (VectorLine line in this._centerLines)
                     line.active = active;
-                foreach (VectorLine line in this.capsLines)
+                foreach (VectorLine line in this._capsLines)
                     line.active = active;
             }
 
             public void Destroy()
             {
-                VectorLine.Destroy(this.capsLines);
-                VectorLine.Destroy(this.centerLines);
-                VectorLine.Destroy(this.capsCircles);
-                VectorLine.Destroy(this.centerCircles);
+                VectorLine.Destroy(this._capsLines);
+                VectorLine.Destroy(this._centerLines);
+                VectorLine.Destroy(this._capsCircles);
+                VectorLine.Destroy(this._centerCircles);
             }
         }
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
         private class ColliderPlaneDebugLines
         {
             public VectorLine leftLine;
@@ -413,7 +415,7 @@ namespace HSPE.AMModules
             }
         }
 
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
         private class ColliderPlaneData : ColliderDataBase
         {
             public ColliderPlaneData()
@@ -431,8 +433,9 @@ namespace HSPE.AMModules
 
         #region Private Variables
         internal static readonly Dictionary<DynamicBoneColliderBase, CollidersEditor> _loneColliders = new Dictionary<DynamicBoneColliderBase, CollidersEditor>();
+        internal static readonly Dictionary<DynamicBoneColliderBase, CollidersEditor> _globalColliders = new Dictionary<DynamicBoneColliderBase, CollidersEditor>();
         private static ColliderDebugLines _colliderDebugLines;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
         private static ColliderPlaneDebugLines _colliderPlaneDebugLines;
 #endif
         private static readonly string[] _directionNames;
@@ -442,9 +445,8 @@ namespace HSPE.AMModules
         private Vector2 _collidersEditionScroll;
         internal readonly Dictionary<Transform, DynamicBoneColliderBase> _colliders = new Dictionary<Transform, DynamicBoneColliderBase>();
         internal readonly bool _isLoneCollider = false;
-        internal readonly bool _isLoneColliderParent = false;
         private DynamicBoneColliderBase _colliderTarget;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
         private bool _isTargetNormalCollider = true;
 #endif
         internal readonly Dictionary<DynamicBoneColliderBase, ColliderDataBase> _dirtyColliders = new Dictionary<DynamicBoneColliderBase, ColliderDataBase>();
@@ -484,6 +486,7 @@ namespace HSPE.AMModules
                     DynamicBoneColliderBase collider = colliderTransform.GetComponent<DynamicBoneColliderBase>();
                     if (collider != null)
                     {
+                        UnityEngine.Debug.Log("Found a lone collider " + collider);
                         this._parent.onUpdate += this.Update;
                         this._isLoneCollider = true;
                         _loneColliders.Add(collider, this);
@@ -504,22 +507,127 @@ namespace HSPE.AMModules
                     }
                 }
             }
-            foreach (DynamicBoneColliderBase c in this._parent.GetComponentsInChildren<DynamicBoneColliderBase>(true))
+
+            var colliders = this._parent.GetComponentsInChildren<DynamicBoneColliderBase>(true);
+            if (colliders.Length == 0)
+                return;
+
+            UnityEngine.Debug.Log("Initializing " + colliders.Length + " colliders for " + this._parent);
+            var selfDynamicBones = new List<DynamicBone>(this._parent.GetComponentsInChildren<DynamicBone>());
+            var selfDynamicBonesv2 = new List<DynamicBone_Ver02>(this._parent.GetComponentsInChildren<DynamicBone_Ver02>());
+            foreach (var x in selfDynamicBones)
+                UnityEngine.Debug.Log("Self bone: " + x + " " + x.m_Root);
+            foreach (var x in selfDynamicBonesv2)
+                UnityEngine.Debug.Log("Self bone v2: " + x + " " + x.Root);
+
+            var allDynamicBones = new List<DynamicBone>(Resources.FindObjectsOfTypeAll<DynamicBone>());
+            var allDynamicBonesV2 = new List<DynamicBone_Ver02>(Resources.FindObjectsOfTypeAll<DynamicBone_Ver02>());
+            var boneOwners = new Dictionary<DynamicBone, PoseController>();
+            var boneOwnersV2 = new Dictionary<DynamicBone_Ver02, PoseController>();
+
+            foreach (DynamicBone bone in allDynamicBones)
+            {
+                var owner = bone.m_Root.gameObject;
+                while (owner != null)
+                {
+                    var oci2 = owner.GetComponent<ObjectCtrlInfo>();
+                    var pc = owner.GetComponent<PoseController>();
+                    if (pc != null)
+                    {
+                        boneOwners[bone] = pc;
+                        if (pc == this._parent)
+                            if (!selfDynamicBones.Contains(bone))
+                                selfDynamicBones.Add(bone);
+                        break;
+                    }
+                    var pt = owner.transform.parent;
+                    if (pt == null)
+                        break;
+                    owner = pt.gameObject;
+                }
+            }
+            foreach (DynamicBone_Ver02 bone in allDynamicBonesV2)
+            {
+                var owner = bone.gameObject;
+                while (owner != null)
+                {
+                    var oci2 = owner.GetComponent<ObjectCtrlInfo>();
+                    var pc = owner.GetComponent<PoseController>();
+                    if (pc != null)
+                    {
+                        boneOwnersV2[bone] = pc;
+                        if (pc == this._parent)
+                            if (!selfDynamicBonesv2.Contains(bone))
+                                selfDynamicBonesv2.Add(bone);
+                        break;
+                    }
+                    var pt = owner.transform.parent;
+                    if (pt == null)
+                        break;
+                    owner = pt.gameObject;
+                }
+            }
+            foreach (DynamicBoneColliderBase c in colliders)
+            {
+                // cf_J_Root is the radius 100 collider under the character's feet, we don't want it to affect other characters
+                if (c.name == "cf_J_Root")
+                {
+                    foreach (DynamicBone bone in selfDynamicBones)
+                        this.SetIgnoreDynamicBone(c, this._parent, bone, true);
+                    continue;
+                }
+                if(!this._isLoneCollider)
+                    _globalColliders.Add(c, this);
+
+                foreach (DynamicBone bone in allDynamicBones)
+                {
+                    PoseController pc = null;
+                    boneOwners.TryGetValue(bone, out pc);
+                    if (selfDynamicBones.Contains(bone))
+                    {
+                        //this.SetIgnoreDynamicBone(c, this._parent, bone, true);
+                        continue;
+                    }
+
+                    // we don't know whose bone it is, best leave it alone
+                    if (pc == null)
+                        continue;
+
+                    if (bone.m_Colliders.Contains(c) == false)
+                        bone.m_Colliders.Add(c);
+                }
+                if (c is DynamicBoneCollider)
+                {
+                    DynamicBoneCollider normalCollider = (DynamicBoneCollider)c;
+                    foreach (DynamicBone_Ver02 bone in allDynamicBonesV2)
+                    {
+                        if (selfDynamicBonesv2.Contains(bone))
+                            continue;
+                        PoseController pc = null;
+                        if (boneOwnersV2.TryGetValue(bone, out pc) && pc == this._parent)
+                            continue;
+                        if (bone.Colliders.Contains(normalCollider) == false)
+                            bone.Colliders.Add(normalCollider);
+                    }
+                }
+            }
+
+            foreach (var c in colliders)
                 if (this._colliders.ContainsKey(c.transform) == false)
                     this._colliders.Add(c.transform, c);
+
             this._colliderTarget = this._colliders.FirstOrDefault().Value;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
             this._isTargetNormalCollider = this._colliderTarget is DynamicBoneCollider;
 #endif
             if (_colliderDebugLines == null)
             {
                 _colliderDebugLines = new ColliderDebugLines();
                 _colliderDebugLines.SetActive(false);
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 _colliderPlaneDebugLines = new ColliderPlaneDebugLines();
                 _colliderPlaneDebugLines.SetActive(false);
 #endif
-                MainWindow._self._cameraEventsDispatcher.onPreRender += UpdateGizmosIf;
             }
 
             this._incIndex = -2;
@@ -577,7 +685,7 @@ namespace HSPE.AMModules
                     if (bone.m_Colliders.Contains(collider))
                         bone.m_Colliders.Remove(collider);
                 }
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 if (collider is DynamicBoneCollider)
 #endif
                 {
@@ -592,9 +700,9 @@ namespace HSPE.AMModules
             }
         }
 
-        #endregion
+#endregion
 
-        #region Public Methods
+#region Public Methods
         public override void DrawAdvancedModeChanged()
         {
             UpdateDebugLinesState(this);
@@ -607,6 +715,68 @@ namespace HSPE.AMModules
 
         public override void GUILogic()
         {
+/*
+            UnityEngine.Debug.Log("Bones and colliders review");
+            var selfDynamicBones = new List<DynamicBone>(this._parent.GetComponentsInChildren<DynamicBone>());
+            var selfDynamicBonesv2 = new List<DynamicBone_Ver02>(this._parent.GetComponentsInChildren<DynamicBone_Ver02>());
+            foreach (var x in selfDynamicBones)
+                UnityEngine.Debug.Log("Self bone: " + x + " " + x.m_Root);
+            foreach (var x in selfDynamicBonesv2)
+                UnityEngine.Debug.Log("Self bone v2: " + x + " " + x.Root);
+
+            var allDynamicBones = new List<DynamicBone>(Resources.FindObjectsOfTypeAll<DynamicBone>());
+            var allDynamicBonesV2 = new List<DynamicBone_Ver02>(Resources.FindObjectsOfTypeAll<DynamicBone_Ver02>());
+            var boneOwners = new Dictionary<DynamicBone, PoseController>();
+            var boneOwnersV2 = new Dictionary<DynamicBone_Ver02, PoseController>();
+
+            foreach (DynamicBone bone in allDynamicBones)
+            {
+                var owner = bone.m_Root.gameObject;
+                var ctrl = owner.transform.GetComponentInParent<ChaControl>();
+                PoseController controller = null;
+                while (owner != null)
+                {
+                    var oci2 = owner.GetComponent<ObjectCtrlInfo>();
+                    var pc = owner.GetComponent<PoseController>();
+                    if (pc != null)
+                    {
+                        controller = pc;
+                        break;
+                    }
+                    var pt = owner.transform.parent;
+                    if (pt == null)
+                        break;
+                    owner = pt.gameObject;
+                }
+                UnityEngine.Debug.Log("Global bone: " + bone + " " + bone.m_Root + " with the ultimate owner " + controller + ", ChaControl "+ctrl);
+                List<DynamicBoneColliderBase> colliders = bone.m_Colliders;
+                if (colliders.Count > 0)
+                {
+                    UnityEngine.Debug.Log(" Affecting colliders:");
+                    foreach (var x in colliders)
+                        UnityEngine.Debug.Log(" collider " + x);
+                }
+            }
+            UnityEngine.Debug.Log("===");
+            foreach (KeyValuePair<Transform, DynamicBoneColliderBase> pair in this._colliders)
+            {
+                UnityEngine.Debug.Log("Collider " + pair.Value);
+                ColliderDataBase data;
+                if (this._dirtyColliders.TryGetValue(pair.Value, out data) == true)
+                {
+                    foreach (KeyValuePair<PoseController, HashSet<object>> x in data.ignoredDynamicBones)
+                        foreach (object dynamicBone in x.Value)
+                        {
+                            if (dynamicBone is DynamicBone db)
+                                UnityEngine.Debug.Log("  Ignored bone: " + db + " " + db.m_Root);
+                            else if (dynamicBone is DynamicBone_Ver02 db2)
+                                UnityEngine.Debug.Log("  Ignored bone2: " + db2 + " " + db2.Root);
+                            else
+                                UnityEngine.Debug.Log("  Ignored bone3: " + dynamicBone);
+                        }
+                }
+            }
+*/
             GUILayout.BeginHorizontal();
 
             GUILayout.BeginVertical();
@@ -625,7 +795,7 @@ namespace HSPE.AMModules
                 if (GUILayout.Button(pair.Value.name + (this.IsColliderDirty(pair.Value) ? "*" : "")))
                 {
                     this._colliderTarget = pair.Value;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                     this._isTargetNormalCollider = this._colliderTarget is DynamicBoneCollider;
 #endif
                 }
@@ -646,18 +816,18 @@ namespace HSPE.AMModules
 
             GUILayout.BeginVertical(GUI.skin.box);
 
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
             if (this._isTargetNormalCollider)
 #endif
             {
                 this.DrawFields((DynamicBoneCollider)this._colliderTarget);
             }
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
             else
                 this.DrawFields((DynamicBonePlaneCollider)this._colliderTarget);
 #endif
 
-            if (this._isLoneCollider || this._isLoneColliderParent)
+            if (true)//this._isLoneCollider)
             {
                 GUILayout.BeginVertical(GUI.skin.box);
                 GUILayout.BeginHorizontal();
@@ -714,7 +884,7 @@ namespace HSPE.AMModules
                         }
 
                         if (
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                                 this._isTargetNormalCollider && 
 #endif
                                 charaPoseController != null && 
@@ -770,7 +940,7 @@ namespace HSPE.AMModules
                     {
                         DynamicBoneColliderBase col = obj.GetComponent<DynamicBoneColliderBase>();
                         ColliderDataBase newData;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                         if (col is DynamicBoneCollider)
 #endif
                         {
@@ -784,7 +954,7 @@ namespace HSPE.AMModules
                             if (otherData.originalRadius.hasValue)
                                 collider.m_Radius = otherCollider.m_Radius;
                         }
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                         else
                             newData = new ColliderPlaneData((ColliderPlaneData)kvp.Value);
 #endif
@@ -892,7 +1062,7 @@ namespace HSPE.AMModules
                         if (collider == null)
                             continue;
                         ColliderDataBase data;
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                         bool isNormalCollider = node.Attributes["isNormalCollider"] == null || XmlConvert.ToBoolean(node.Attributes["isNormalCollider"].Value);
                         if (isNormalCollider)
 #endif
@@ -914,7 +1084,7 @@ namespace HSPE.AMModules
                             }
                             data = colliderData;
                         }
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                         else
                         {
                             data = new ColliderPlaneData();
@@ -944,7 +1114,7 @@ namespace HSPE.AMModules
                         if (node.HasChildNodes)
                             changed = true;
 
-                        if (this._isLoneCollider)
+                        if (true) //this._isLoneCollider)
                         {
                             this._parent.ExecuteDelayed(() =>
                             {
@@ -987,9 +1157,9 @@ namespace HSPE.AMModules
             }
             return changed;
         }
-        #endregion
+#endregion
 
-        #region Private Methods
+#region Private Methods
         private void DrawFieldsBase(DynamicBoneColliderBase collider)
         {
             GUILayout.BeginVertical();
@@ -1031,7 +1201,7 @@ namespace HSPE.AMModules
 
 #if HONEYSELECT || KOIKATSU || PLAYHOME
             float radius = this.FloatEditor(collider.m_Radius, 0f, 1f, "Radius\t");
-#elif AISHOUJO
+#elif AISHOUJO || HONEYSELECT2
             float radius = this.FloatEditor(collider.m_Radius, 0f, 10f, "Radius\t");
 #endif
             if (Mathf.Approximately(radius, collider.m_Radius) == false)
@@ -1045,7 +1215,7 @@ namespace HSPE.AMModules
 
         }
 
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
         private void DrawFields(DynamicBonePlaneCollider collider)
         {
             this.DrawFieldsBase(collider);
@@ -1092,15 +1262,6 @@ namespace HSPE.AMModules
             collider.m_Height = height;
         }
 
-        private static void UpdateGizmosIf()
-        {
-            if (MainWindow._self._poseTarget != null && GizmosEnabled(MainWindow._self._poseTarget._collidersEditor))
-            {
-                MainWindow._self._poseTarget._collidersEditor.UpdateGizmos();
-                MainWindow._self._poseTarget._collidersEditor.DrawGizmos();
-            }
-        }
-
         private void ResetAll()
         {
             foreach (KeyValuePair<DynamicBoneColliderBase, ColliderDataBase> pair in new Dictionary<DynamicBoneColliderBase, ColliderDataBase>(this._dirtyColliders))
@@ -1115,7 +1276,7 @@ namespace HSPE.AMModules
             {
                 if (collider is DynamicBoneCollider)
                     data = new ColliderData();
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 else
                     data = new ColliderPlaneData();
 #endif
@@ -1195,7 +1356,7 @@ namespace HSPE.AMModules
 
         private void SetIgnoreAllDynamicBones(DynamicBoneColliderBase collider, bool ignore)
         {
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
             bool isColliderNormalCollider = collider is DynamicBoneCollider;
 #endif
 
@@ -1213,7 +1374,7 @@ namespace HSPE.AMModules
                 }
 
                 if (
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                         isColliderNormalCollider &&
 #endif
                         charaPoseController != null && charaPoseController._boobsEditor != null
@@ -1226,61 +1387,60 @@ namespace HSPE.AMModules
 
         }
 
-        private void UpdateGizmos()
+        public override void UpdateGizmos()
         {
+            if (this.GizmosEnabled() == false)
+                return;
+
             if (MainWindow._self._poseTarget == this._parent)
             {
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 if (this._isTargetNormalCollider)
 #endif
                 {
                     _colliderDebugLines.Update((DynamicBoneCollider)this._colliderTarget);
                 }
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 else
                     _colliderPlaneDebugLines.Update((DynamicBonePlaneCollider)this._colliderTarget);
 #endif
-            }
-        }
-
-        private void DrawGizmos()
-        {
-#if AISHOUJO
-            if (this._isTargetNormalCollider)
+#if AISHOUJO || HONEYSELECT2
+                if (this._isTargetNormalCollider)
 #endif
-            {
-                _colliderDebugLines.Draw();
-            }
-#if AISHOUJO
-            else
-                _colliderPlaneDebugLines.Draw();
+                {
+                    _colliderDebugLines.Draw();
+                }
+#if AISHOUJO || HONEYSELECT2
+                else
+                    _colliderPlaneDebugLines.Draw();
 #endif
+            }
         }
 
         private static void UpdateDebugLinesState(CollidersEditor self)
         {
             if (_colliderDebugLines != null)
             {
-                bool enabled = GizmosEnabled(self);
+                bool enabled = self != null && self.GizmosEnabled();
                 _colliderDebugLines.SetActive(
                         enabled
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                         && self._isTargetNormalCollider
 #endif
                                               );
-#if AISHOUJO
+#if AISHOUJO || HONEYSELECT2
                 _colliderPlaneDebugLines.SetActive(enabled && self._isTargetNormalCollider == false);
 #endif
             }
         }
 
-        private static bool GizmosEnabled(CollidersEditor self)
+        private bool GizmosEnabled()
         {
-            return self != null && self._isEnabled && PoseController._drawAdvancedMode && self._colliderTarget != null;
+            return this._isEnabled && PoseController._drawAdvancedMode && this._colliderTarget != null;
         }
-        #endregion
+#endregion
 
-        #region Timeline Compatibility
+#region Timeline Compatibility
         internal static class TimelineCompatibility
         {
             public static void Populate()
@@ -1450,6 +1610,6 @@ namespace HSPE.AMModules
                 writer.WriteAttributeString("parameter", ((HashedPair<CollidersEditor, DynamicBoneCollider>)o).value.transform.GetPathFrom(oci.guideObject.transformTarget));
             }
         }
-        #endregion
+#endregion
     }
 }

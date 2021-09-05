@@ -36,7 +36,7 @@ namespace HSPE.AMModules
                 this.ociChar = (OCIChar)this.oci;
 #if HONEYSELECT
                 this.isFemale = this.ociChar.charInfo.Sex == 1;
-#elif KOIKATSU || PLAYHOME || AISHOUJO
+#elif KOIKATSU || PLAYHOME || AISHOUJO || HONEYSELECT2
                 this.isFemale = this.ociChar.charInfo.sex == 1;
 #endif
                 foreach (OCIChar.BoneInfo bone in this.ociChar.listBones)
