@@ -1601,6 +1601,21 @@ namespace HSPE.AMModules
                     }
                 }
             }
+            DynamicBone_Ver02[] dynamicBonesV2 = this._parent.GetComponentsInChildren<DynamicBone_Ver02>(true);
+            UnityEngine.Debug.Log("Dynamic bones V2: " + dynamicBonesV2 + " " + dynamicBonesV2.Length);
+
+            foreach (KeyValuePair<DynamicBoneColliderBase, CollidersEditor> pair in CollidersEditor._globalColliders)
+            {
+                if (!(pair.Key is DynamicBoneCollider c))
+                    continue;
+                if (pair.Value._parent == this._parent)
+                    continue;
+                foreach (DynamicBone_Ver02 bone in dynamicBonesV2)
+                {
+                    if (bone.Colliders.Contains(c) == false)
+                        bone.Colliders.Add(c);
+                }
+            }
         }
 
         private static void UpdateDebugLinesState(DynamicBonesEditor self)

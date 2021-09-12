@@ -111,16 +111,17 @@ namespace Timeline
                     writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o),
                     useOciInHash: false
             ));
-
+            /*
+             // these seem redundant, and, in any event, I'm not sure how to access the correct transform 
             Timeline.AddInterpolableModel(new InterpolableModel(
                     owner: Timeline._ownerId,
                     id: "cameraPos",
                     parameter: null,
                     name: "Camera Position",
                     interpolateBefore: null,
-                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => Studio.Studio.Instance.cameraCtrl.mainCmaera.transform.position = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => Studio.Studio.Instance.cameraCtrl.transBase.position = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
                     isCompatibleWithTarget: (oci) => true,
-                    getValue: (oci, parameter) => Studio.Studio.Instance.cameraCtrl.mainCmaera.transform.position,
+                    getValue: (oci, parameter) => Studio.Studio.Instance.cameraCtrl.transBase.position,
                     readValueFromXml: (parameter, node) => node.ReadVector3("value"),
                     writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Vector3)o),
                     useOciInHash: false
@@ -131,13 +132,14 @@ namespace Timeline
                     parameter: null,
                     name: "Camera Rotation",
                     interpolateBefore: null,
-                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => Studio.Studio.Instance.cameraCtrl.mainCmaera.transform.rotation = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor),
+                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => Studio.Studio.Instance.cameraCtrl.transBase.rotation = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor),
                     isCompatibleWithTarget: (oci) => true,
-                    getValue: (oci, parameter) => Studio.Studio.Instance.cameraCtrl.mainCmaera.transform.rotation,
+                    getValue: (oci, parameter) => Studio.Studio.Instance.cameraCtrl.transBase.rotation,
                     readValueFromXml: (parameter, node) => node.ReadQuaternion("value"),
                     writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (Quaternion)o),
                     useOciInHash: false
             ));
+            */
             Timeline.AddInterpolableModel(new InterpolableModel(
                     owner: Timeline._ownerId,
                     id: "timeScale",
@@ -464,24 +466,19 @@ namespace Timeline
         {
             Timeline.AddInterpolableModel(new InterpolableModel(
                     owner: Timeline._ownerId,
-                    id: "femaleTears",
+                    id: "Tears",
                     parameter: null,
                     name: "Tears",
-                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
-                    {
-                        byte value = (byte)leftValue;
-                        if (((OCIChar)oci).GetTears() != value)
-                            ((OCIChar)oci).SetTears(_state: value);
-                    },
+                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((OCIChar)oci).SetTears(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),
                     interpolateAfter: null,
-                    isCompatibleWithTarget: (oci) => oci is OCICharFemale,
+                    isCompatibleWithTarget: (oci) => oci is OCIChar,
                     getValue: (oci, parameter) => ((OCIChar)oci).GetTears(),
-                    readValueFromXml: (parameter, node) => node.ReadByte("value"),
-                    writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (byte)o)));
+                    readValueFromXml: (parameter, node) => node.ReadFloat("value"),
+                    writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o)));
 
             Timeline.AddInterpolableModel(new InterpolableModel(
                     owner: Timeline._ownerId,
-                    id: "femaleBlush",
+                    id: "Blush",
                     parameter: null,
                     name: "Blush",
                     interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((OCIChar)oci).SetHohoAkaRate(Mathf.LerpUnclamped((float)leftValue, (float)rightValue, factor)),

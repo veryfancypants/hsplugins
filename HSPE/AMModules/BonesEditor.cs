@@ -350,6 +350,10 @@ namespace HSPE.AMModules
                 foreach (KeyValuePair<GameObject, TransformData> pair in this._dirtyBones)
                     this.OpenParents(pair.Key);
             }
+            if (GUILayout.Button("Reset all"))
+            {
+                ResetAll();
+            }
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();

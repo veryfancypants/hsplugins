@@ -2676,14 +2676,24 @@ namespace HSPE.AMModules
 
             private static bool IsCompatibleWithTargetFullBodyBipedIK(ObjectCtrlInfo oci)
             {
-                PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.FullBodyBipedIK;
+                if (oci == null || oci.guideObject == null || oci.guideObject.transformTarget == null)
+                    return false;
+                PoseController controller = oci.guideObject.transformTarget.GetComponent<PoseController>();
+                return 
+                    controller != null 
+                    && controller._ikEditor != null
+                    && controller._ikEditor.shouldDisplay 
+                    && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.FullBodyBipedIK;
             }
 
             private static bool IsCompatibleWithTargetLimbIK(ObjectCtrlInfo oci)
             {
                 PoseController controller;
-                return oci != null && oci.guideObject != null && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null && controller._ikEditor.shouldDisplay && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.LimbIK;
+                return oci != null && oci.guideObject != null 
+                    && oci.guideObject.transformTarget != null && (controller = oci.guideObject.transformTarget.GetComponent<PoseController>()) != null 
+                    && controller._ikEditor != null
+                    && controller._ikEditor.shouldDisplay 
+                    && controller._ikEditor._ikTarget != null && controller._ikEditor._ikTarget.type == IKType.LimbIK;
             }
 
             private static object GetParameter(ObjectCtrlInfo oci)

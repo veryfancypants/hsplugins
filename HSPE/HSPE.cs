@@ -41,15 +41,15 @@ namespace HSPE
         internal const string _guid = "com.joan6694.kkplugins.kkpe";
         internal const int saveVersion = 0;
 #elif AISHOUJO
-        internal const string _name = "AIPE";
-        internal const string _guid = "com.joan6694.illusionplugins.poseeditor";
+        internal const string _name = "AIPE_fork";
+        internal const string _guid = "com.joan6694.illusionplugins.poseeditor-fork";
         internal const int saveVersion = 0;
 #elif HONEYSELECT2
         internal const string _name = "HS2PE";
         internal const string _guid = "com.joan6694.illusionplugins.poseeditor";
         internal const int saveVersion = 0;
 #endif
-        internal const string _versionNum = "2.12.0";
+        internal const string _versionNum = "0.1.0";
 
 #if IPA
         public override string Name { get { return _name; } }

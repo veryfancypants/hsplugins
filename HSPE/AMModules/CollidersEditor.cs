@@ -253,53 +253,83 @@ namespace HSPE.AMModules
         private class ColliderPlaneDebugLines
         {
             public VectorLine leftLine;
-            //public readonly VectorLine rightLine;
-            //public readonly VectorLine topLine;
-            //public readonly VectorLine bottomLine;
+            public VectorLine rightLine;
+            public VectorLine topLine;
+            public VectorLine bottomLine;
 
             public ColliderPlaneDebugLines()
             {
                 this.leftLine = VectorLine.SetLine(_colliderColor, Vector3.zero, new Vector3(0f, 1f, 0f));
                 this.leftLine.endCap = "vector";
                 this.leftLine.lineWidth = 2f;
-                //this.topLine = VectorLine.SetLine(_colliderColor, new Vector3(0f, 1f, 0f), Vector3.one);
-                //this.rightLine = VectorLine.SetLine(_colliderColor, Vector3.one, new Vector3(1f, 0f, 0f));
-                //this.bottomLine = VectorLine.SetLine(_colliderColor, new Vector3(1f, 0f, 0f), Vector3.zero);
+                this.topLine = VectorLine.SetLine(_colliderColor, new Vector3(0f, 1f, 0f), Vector3.one);
+                this.topLine.endCap = "vector";
+                this.topLine.lineWidth = 2f;
+                this.rightLine = VectorLine.SetLine(_colliderColor, Vector3.one, new Vector3(1f, 0f, 0f));
+                this.rightLine.endCap = "vector";
+                this.rightLine.lineWidth = 2f;
+                this.bottomLine = VectorLine.SetLine(_colliderColor, new Vector3(1f, 0f, 0f), Vector3.zero);
+                this.bottomLine.endCap = "vector";
+                this.bottomLine.lineWidth = 2f;
             }
 
             public void Update(DynamicBonePlaneCollider collider)
             {
-                Vector3 vector3 = Vector3.up;
+                Vector3 vector3 = Vector3.up, v1 = Vector3.left, v2 = Vector3.forward;
                 switch (collider.m_Direction)
                 {
                     case DynamicBoneCollider.Direction.X:
                         vector3 = collider.transform.right;
+                        v1 = collider.transform.up;
+                        v2 = collider.transform.forward;
                         break;
                     case DynamicBoneCollider.Direction.Y:
                         vector3 = collider.transform.up;
+                        v1 = collider.transform.right;
+                        v2 = collider.transform.forward;
                         break;
                     case DynamicBoneCollider.Direction.Z:
                         vector3 = collider.transform.forward;
+                        v1 = collider.transform.up;
+                        v2 = collider.transform.right;
                         break;
                 }
                 Vector3 from = collider.transform.TransformPoint(collider.m_Center);
+                Vector3 from2 = collider.transform.TransformPoint(collider.m_Center+v1);
+                Vector3 from3 = collider.transform.TransformPoint(collider.m_Center + v2);
+                Vector3 from4 = collider.transform.TransformPoint(collider.m_Center + v1+v2);
                 this.leftLine.points3[0] = from;
                 this.leftLine.points3[1] = from + vector3;
+                this.rightLine.points3[0] = from2;
+                this.rightLine.points3[1] = from2 + vector3;
+                this.topLine.points3[0] = from3;
+                this.topLine.points3[1] = from3 + vector3;
+                this.bottomLine.points3[0] = from4;
+                this.bottomLine.points3[1] = from4 + vector3;
             }
 
             public void Draw()
             {
                 this.leftLine.Draw();
+                this.rightLine.Draw();
+                this.topLine.Draw();
+                this.bottomLine.Draw();
             }
 
             public void SetActive(bool active)
             {
                 this.leftLine.active = active;
+                this.rightLine.active = active;
+                this.topLine.active = active;
+                this.bottomLine.active = active;
             }
 
             public void Destroy()
             {
                 VectorLine.Destroy(ref this.leftLine);
+                VectorLine.Destroy(ref this.rightLine);
+                VectorLine.Destroy(ref this.topLine);
+                VectorLine.Destroy(ref this.bottomLine);
             }
         }
 #endif
@@ -524,9 +554,11 @@ namespace HSPE.AMModules
             var allDynamicBonesV2 = new List<DynamicBone_Ver02>(Resources.FindObjectsOfTypeAll<DynamicBone_Ver02>());
             var boneOwners = new Dictionary<DynamicBone, PoseController>();
             var boneOwnersV2 = new Dictionary<DynamicBone_Ver02, PoseController>();
-
+            UnityEngine.Debug.Log("Bones: " + allDynamicBones + allDynamicBonesV2 + boneOwners + boneOwnersV2);
             foreach (DynamicBone bone in allDynamicBones)
             {
+                if(bone.m_Root == null)
+                    continue;
                 var owner = bone.m_Root.gameObject;
                 while (owner != null)
                 {
@@ -546,6 +578,7 @@ namespace HSPE.AMModules
                     owner = pt.gameObject;
                 }
             }
+            /*
             foreach (DynamicBone_Ver02 bone in allDynamicBonesV2)
             {
                 var owner = bone.gameObject;
@@ -567,6 +600,7 @@ namespace HSPE.AMModules
                     owner = pt.gameObject;
                 }
             }
+            */
             foreach (DynamicBoneColliderBase c in colliders)
             {
                 // cf_J_Root is the radius 100 collider under the character's feet, we don't want it to affect other characters
@@ -594,7 +628,9 @@ namespace HSPE.AMModules
                         continue;
 
                     if (bone.m_Colliders.Contains(c) == false)
+                    {
                         bone.m_Colliders.Add(c);
+                    }
                 }
                 if (c is DynamicBoneCollider)
                 {
@@ -607,7 +643,10 @@ namespace HSPE.AMModules
                         if (boneOwnersV2.TryGetValue(bone, out pc) && pc == this._parent)
                             continue;
                         if (bone.Colliders.Contains(normalCollider) == false)
+                        {
+                            UnityEngine.Debug.Log("Adding collider " + c + " to the v2 bone " + bone + " " + bone.Root);
                             bone.Colliders.Add(normalCollider);
+                        }
                     }
                 }
             }
@@ -823,7 +862,7 @@ namespace HSPE.AMModules
                 this.DrawFields((DynamicBoneCollider)this._colliderTarget);
             }
 #if AISHOUJO || HONEYSELECT2
-            else
+            else if(this._colliderTarget is DynamicBonePlaneCollider)
                 this.DrawFields((DynamicBonePlaneCollider)this._colliderTarget);
 #endif
 

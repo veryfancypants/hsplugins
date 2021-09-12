@@ -441,8 +441,6 @@ namespace Timeline
             }
         }
 
-        public static void Play() { }
-
         #endregion
 
         #region Private Methods
@@ -2171,7 +2169,14 @@ namespace Timeline
                 return;
             string path = Path.Combine(_singleFilesFolder, this._singleFileNameField.text + ".xml");
             if (File.Exists(path))
+            {
+                var ints = new List<Interpolable>();
+                //foreach (var x in this._interpolables.Values)
+                //    if (x.oci == this._selectedOCI)
+                //        ints.Add(x);
+                //this.RemoveInterpolables(ints);
                 this.LoadSingle(path);
+            }
         }
 
         private void SaveSingleFile()
@@ -3013,6 +3018,8 @@ namespace Timeline
                     if (interpolableNode.Attributes["alias"] != null)
                         interpolable.alias = interpolableNode.Attributes["alias"].Value;
 
+                    if (this._interpolables.ContainsKey(interpolable.GetHashCode()))
+                        this.RemoveInterpolable(this._interpolables[interpolable.GetHashCode()]); 
                     if (this._interpolables.ContainsKey(interpolable.GetHashCode()) == false)
                     {
                         this._interpolables.Add(interpolable.GetHashCode(), interpolable);
