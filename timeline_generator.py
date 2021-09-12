@@ -3,7 +3,7 @@
 QUICK START GUIDE
 
 * Edit the "tfpath" variable below to point at your install of AI. Create the Timeline\Single Files folder if it does not exist.
-* Run the script.
+* Run the script. (Recommend using Sublime Text as the editor; you could then just hit Ctrl-B once you're done editing, it will save and run.)
 * Fire up NeoV2.
 * Add a map (say, 'housing island') and a female character.
 * Select the character. Kinematics -> FK & IK -> turn on 'function', uncheck 'Neck', then Kinematics -> Neck -> Anim.
@@ -16,6 +16,22 @@ QUICK START GUIDE
 * Seek to 9.0 s. Open AIPE. Open the advanced mode editor. Click on 'f_t_arm_R(work)'. In the right pane, click on 'Position'. 
 * Use the controls to position the hand right above the lips. Note the x,y,z numbers and put them in the call to tff.post('bonePos hand_r', 9.0,...)
 * Rerun the script, reload the generated file. Verify that the hand travels to the right place at 9.0 s.
+
+If you have v0.1.1 or newer:
+
+* Select all interpolables: scroll down in the timeline window, click on the last one, scroll up to the beginning, shift-click on the first one.
+* Right-click and select 'flush' from the context menu.
+* Open the AIPE advanced mode editor and click the 'reset all' button. Close the advanced mode editor.
+* Pick any animation from the menu. (It won't play at first)
+* Kinematics -> FK & IK -> Refer To Animation. 
+* Middle-click anywhere on the black bar (all interpolables should still be selected.) This adds a column of keyframes. Hover a mouse over any one and note 
+the time. Suppose it's 00:02.19xxxx. Then:
+* Type 'myanim' in the timeline load/save interface, and click 'save'.
+* Go back to the script and add
+		merge_point(tff, "myanim.xml", 219, 9.5)
+  after the last command.
+* Run the script and reload gen_output_char1. Verify that the character transitions into the pose you just picked at 9.5 s (possibly going through some 
+unnatural motions along the way.)
 
 """
 
@@ -178,6 +194,12 @@ bone_shortcuts={
 	'foot_r': 'f_t_leg_R(work)',
 	'neck':'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Spine01/cf_J_Spine02/cf_J_Spine03/cf_J_Neck',
 	'head':'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Spine01/cf_J_Spine02/cf_J_Spine03/cf_J_Neck/cf_J_Head',
+
+	'ana': 'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_Kosi02_s/cf_J_Ana',
+	'v5l': 'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_Kosi02_s/cf_J_Kokan/cf_J_Vagina_root/cf_J_Vagina_Pivot_L.005/cf_J_Vagina_L.005',
+	'v5r': 'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_Kosi02_s/cf_J_Kokan/cf_J_Vagina_root/cf_J_Vagina_Pivot_R.005/cf_J_Vagina_R.005',
+	'v4l': 'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_Kosi02_s/cf_J_Kokan/cf_J_Vagina_root/cf_J_Vagina_Pivot_L.004/cf_J_Vagina_L.004',
+	'v4r': 'BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Kosi01/cf_J_Kosi02/cf_J_Kosi02_s/cf_J_Kokan/cf_J_Vagina_root/cf_J_Vagina_Pivot_R.004/cf_J_Vagina_R.004',
 }
 
 class timefile:
@@ -234,6 +256,7 @@ class timefile:
 				print("Error: negative time")
 			elif args[0]<=self.timestamps[stream]:
 				print("Error: timestamps in ", stream, " must be in strictly increasing order")
+				return
 			self.timestamps[stream]=args[0]
 			if args[1]=='last':
 				data=self.constructors[stream](args[0], *self.last[stream])
@@ -254,8 +277,11 @@ class timefile:
 		of.close()
 
 
-def merge_point(tf, name, tt, newtime):
-	tree = ET.parse(tfpath+name)
+def merge_point(tf, name, tt, newtime, scale=1.0, ignore=[]):
+	try:
+		tree = ET.parse(tfpath+name)
+	except:
+		tree = ET.parse(name)
 	root = tree.getroot()
 	s={}
 	for x in root:
@@ -268,12 +294,19 @@ def merge_point(tf, name, tt, newtime):
 				p, t, vx, vy, vz = (x.attrib['parameter'] if id=='bonePos' else None), float(y.attrib['time']), float(y.attrib['valueX']), float(y.attrib['valueY']), float(y.attrib['valueZ'])
 				t=int(t*100)
 				if t==tt:
-					tf.post(id+' '+p if id=='bonePos' else 'pos', newtime, vx, vy, vz)
+					#print(id+' '+p if id=='bonePos' else 'pos', newtime, vx, vy, vz)
+					key=id+' '+p if id=='bonePos' else 'pos'
+					if key in ignore:
+						continue
+					tf.post(key, newtime, vx*scale, vy*scale, vz*scale)
 			else:#if id=="boneRot":
 				p, t, vx, vy, vz, vw = (x.attrib['parameter'] if id=='boneRot' else None), float(y.attrib['time']), float(y.attrib['valueX']), float(y.attrib['valueY']), float(y.attrib['valueZ']), float(y.attrib['valueW'])
 				t=int(t*100)
 				if t==tt:
-					tf.post(id+' '+p if id=='boneRot' else 'rot', newtime, vx, vy, vz, vw)
+					key=id+' '+p if id=='boneRot' else 'rot'
+					if key in ignore:
+						continue
+					tf.post(key, newtime, vx, vy, vz, vw)
 
 
 def gen_walk(tf,scale=None, stop=None, steps=5, phi=0.0, speed=1.0, stride_mult=1.0, start_point=[0.0, 0.0, 0.0]):
@@ -295,13 +328,14 @@ def gen_walk(tf,scale=None, stop=None, steps=5, phi=0.0, speed=1.0, stride_mult=
 				if ('shoulder' in k) or ('elbo' in k) or ('arm' in k):
 					pos[0] *= scale[5]
 					pos[1] *= scale[0]
-					pos[2] *= scale[5]
+					pos[2] *= stride_mult*scale[5]
 				elif ('hip' in k):
 					pos[1] *= scale[1]
-					pos[2] *= scale[1]
+					pos[2] *= stride_mult*scale[1]
 				elif ('thigh' in k):
 					pos[0] *= scale[4]
 					pos[1] *= scale[2]
+					pos[2] *= stride_mult
 				elif 'knee' in k:
 					pos[0] *= scale[4]
 					pos[1] *= scale[3]
@@ -418,6 +452,14 @@ def gen_fancy_spin(tf, t, angle, duration, steps=5):
 	tf.post('boneRot foot_r', t, 0.0)
 
 
+def dilate_a(tf, t, x):
+	tf.post('boneScale ana', t, 1+x, 1+x, 1+x)
+
+def dilate_v(tf, t, x):
+	tf.post('boneScale v4l', t, 1-x, 1, 1)
+	tf.post('boneScale v4r', t, 1-x, 1, 1)
+	tf.post('boneScale v5l', t, 1-x, 1, 1)
+	tf.post('boneScale v5r', t, 1-x, 1, 1)
 
 # LIBRARY CODE ENDS
 # USER CODE BEGINS
@@ -466,12 +508,14 @@ def do_script():
 	tff.post('boneRot hand_l', 0.0, 0.0, 0.0, 50.0)
 	tff.post('boneRot hand_r', 0.0, 0.0, 0.0, -50.0)
 
+	h_scale = 0.95
+
 	# walk for 5.5 seconds or the default 5 steps (whichever happens first),
 	# at speed 1.0 (default), making half-length strides, starting at (-9.0, 2.2, 14.0) (change the second number to adjust for floor height),
 	# in the direction of 25 degrees. 
 	# We need to know body dimensions, or at least the overall body scale, to generate the walking animation. Pass 0.95 for an average female 
 	# and 1.0 for an average male. The character will walk crouched if the scale is too low, and on straight legs with locked knees if it's too high.
-	gen_walk(tff, stop=5.5, speed=1.0, stride_mult=0.5, start_point=[-9.0, 2.2, 14.0], phi=25.0, scale=0.95)
+	gen_walk(tff, stop=5.5, speed=1.0, stride_mult=0.5, start_point=[-9.0, 2.2, 14.0], phi=25.0, scale=h_scale)
 
 	# at 5.5 s, put the right foot down and turn it flat
 	tff.post('bonePos foot_r', 5.5, 1.03, 0.88, 0.45)
@@ -523,35 +567,64 @@ def do_script():
 	tff.post('mouth', 8.0, 13)
 
 # Bring the right hand in front of the face by 7.5 s, and above the face at 8.0s.
-	tff.post('bonePos hand_r', 7.5, 2.0, 12.0, 3.0)
+	tff.post('bonePos hand_r', 7.5, 2.0, 12.0*h_scale, 3.0)
 	tff.post('boneRot hand_r', 7.5, 40.0, -90.0, 0.0)
 
-	tff.post('bonePos hand_r', 8.0, 0.70, 16.8, 0.2)
-	tff.post('bonePos f_t_elbo_R(work)', 8.0, 10.0, 11.0, 0.0)
+	tff.post('bonePos hand_r', 8.0, 0.70, 16.8*h_scale, 0.2)
+	tff.post('bonePos f_t_elbo_R(work)', 8.0, 10.0, 11.0*h_scale, 0.0)
 	tff.post('boneRot hand_r', 8.0, 80.0, 180.0, 0.0)
 
-# Between 7.5 s and 8.0 s, move the head down slightly (you're not supposed to do that to FK bones, but 
+# Between 7.5 s and 8.0 s, move the head down slightly (you're not supposed to do that to FK bones, but slight tweaks are acceptable if all else fails)
 	tff.post('bonePos BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Spine01/cf_J_Spine02/cf_J_Spine03/cf_J_Neck/cf_J_Head/cf_J_Head_s', 7.5, 0.0, 0.0, 0.0)
 	tff.post('bonePos BodyTop/p_cf_anim/cf_J_Root/cf_N_height/cf_J_Hips/cf_J_Spine01/cf_J_Spine02/cf_J_Spine03/cf_J_Neck/cf_J_Head/cf_J_Head_s', 8.0, 0.0, -0.2, 0.0)
 
 # Move the right hand down until it is just above the mouth. 
-	tff.post('bonePos hand_r', 9.0, 0.64, 15.1, -0.1)
+	tff.post('bonePos hand_r', 9.0, 0.64, 15.3*h_scale, -0.1)
 	tff.post('boneRot hand_r', 9.0, 85.0, 180.0, 0.0)
+	tff.post('boneRot head', 9.0, 'last')
+	tff.post('boneRot neck', 9.0, 'last')
 
-	#gen_spin(tff, 10.0, 270.0, 2.0)
+	#this will only work for some uncensor types
+	dilate_a(tff, 9.5, 0.0)
+	dilate_v(tff, 9.5, 0.0)
+	dilate_a(tff, 10.0, 1.0)
+	dilate_v(tff, 10.0, 1.0)
+	dilate_a(tff, 10.5, 0.0)
+	dilate_v(tff, 10.5, 0.0)
+	dilate_a(tff, 11.0, 1.0)
+	dilate_v(tff, 11.0, 1.0)
 
-	#for n in range(10):
-	#	gen_fancy_spin(tff, 10.0+n*0.5, 50.0, 0.5)
-
-	#A way to bring in fully hand-tuned poses.
-	#* Pose the character.
-	#* In Timeline, create rows for all affected parameters.
-	#* Add keyframes for each with the same timestamp.
-	#* Save the timeline file.
-	#* Specify the name of the saved file, the timestamp at which to pull keyframes (times 100, as integer, rounded down), and the timestamp where to put them.
-	#* For example, the following line will copy all supported keyframes it finds between 1.500 s and 1.509 s, and insert them into the current file at time 9.2 s.
-	#
-	#merge_point(tff, "source.xml", 150, 9.2)	
+	if False:
+		gravure_map={
+		'standing1':136,
+		'standing2':202,
+		'standing3':254,
+		'standing4':295,
+		'standing5':346,
+		'standing6':395,
+		'standing7':450,
+		'standing8':502,
+		'standing9':560,
+		'standing10':617,
+		'half1':648,
+		'half2':685,
+		'half3':742,
+		'half4':779,
+		'half5':839,
+		'half6':881,
+		'half7':928,
+		}
+		#tff.post('mouth', 9.1, 0)
+		#A way to bring in fully hand-tuned poses.
+		#* Pose the character.
+		#* In Timeline, create rows for all affected parameters.
+		#* Add keyframes for each with the same timestamp.
+		#* Save the timeline file.
+		#* Specify the name of the saved file, the timestamp at which to pull keyframes (times 100, as integer, rounded down), and the timestamp where to put them.
+		#* For example, the following line will copy all supported keyframes it finds between 1.360 s and 1.369 s, and insert them into the current file at time 9.1 s.
+		#merge_point(tff, "studio_gravures_1.xml", gravure_map['standing1'], 9.1, scale=h_scale, ignore=['pos', 'rot'])	
+		#tff.post('mouthOpen', 9.5, 0)
+		#merge_point(tff, "studio_gravures_1.xml", gravure_map['half3'], 9.5, scale=h_scale, ignore=['pos', 'rot'])	
 	
 	tff.flush()
 

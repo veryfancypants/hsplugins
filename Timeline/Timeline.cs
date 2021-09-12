@@ -33,7 +33,7 @@ namespace Timeline
     {
         #region Constants
         internal const string _name = "Timeline";
-        private const string _version = "1.0.0";
+        private const string _version = "0.1.1";
         private const string _guid = "com.joan6694.illusionplugins.timeline";
         internal const string _ownerId = "Timeline";
         #endregion
@@ -1407,9 +1407,48 @@ namespace Timeline
                                         }, message);
                                     }
                                 });
+                                elements.Add(new LeafElement()
+                                {
+                                    //icon = this._deleteSprite,
+                                    text = "Enable",
+                                    onClick = p =>
+                                    {
+                                        foreach (Interpolable selectedInterpolable in currentlySelectedInterpolables)
+                                            selectedInterpolable.enabled = true;
+                                        this.UpdateInterpolablesView();
+                                    }
+                                });
+
+                                elements.Add(new LeafElement()
+                                {
+                                    //icon = this._deleteSprite,
+                                    text = "Disable",
+                                    onClick = p =>
+                                    {
+                                        foreach (Interpolable selectedInterpolable in currentlySelectedInterpolables)
+                                            selectedInterpolable.enabled = false;
+                                        this.UpdateInterpolablesView();
+                                    }
+                                });
+
+                                elements.Add(new LeafElement()
+                                {
+                                    //icon = this._deleteSprite,
+                                    text = "Flush",
+                                    onClick = p =>
+                                    {
+                                        foreach (Interpolable selectedInterpolable in currentlySelectedInterpolables)
+                                        {
+                                            KeyValuePair<float, Keyframe>[] kf = selectedInterpolable.keyframes.ToArray();
+                                            this.DeleteKeyframes(kf);
+                                        }
+                                        this.UpdateInterpolablesView();
+                                    }
+                                });
+
                                 UIUtility.ShowContextMenu(this._ui, localPoint, elements, 220);
                             }
-                            break;
+                            break; 
                     }
                 };
                 this._displayedInterpolables.Add(display);
@@ -2079,7 +2118,10 @@ namespace Timeline
         private void OnGridTopMouse(PointerEventData eventData)
         {
             Studio.Studio.Instance.colorPalette.visible = false;
-            if (eventData.button == PointerEventData.InputButton.Left && RectTransformUtility.ScreenPointToLocalPointInRectangle(this._gridTop, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
+            bool ok = RectTransformUtility.ScreenPointToLocalPointInRectangle(this._gridTop, eventData.position, eventData.pressEventCamera, out Vector2 localPoint);
+            if (!ok)
+                return;
+            if (eventData.button == PointerEventData.InputButton.Left)
             {
                 float time = 10f * localPoint.x / (_baseGridWidth * this._zoomLevel);
                 if (Input.GetKey(KeyCode.LeftShift))
@@ -2093,6 +2135,13 @@ namespace Timeline
                 }
                 time = Mathf.Clamp(time, 0, this._duration);
                 this.SeekPlaybackTime(time);
+            }
+            else if (eventData.button == PointerEventData.InputButton.Middle)
+            {
+                float time = 10f * localPoint.x / (_baseGridWidth * this._zoomLevel);
+                foreach (Interpolable x in this._interpolables.Values)
+                    if (x.oci == this._selectedOCI)
+                        this.AddKeyframe(x, time);
             }
         }
 

@@ -49,7 +49,7 @@ namespace HSPE
         internal const string _guid = "com.joan6694.illusionplugins.poseeditor-fork";
         internal const int saveVersion = 0;
 #endif
-        internal const string _versionNum = "0.1.0";
+        internal const string _versionNum = "0.1.1";
 
 #if IPA
         public override string Name { get { return _name; } }
