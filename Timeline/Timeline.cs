@@ -70,6 +70,7 @@ namespace Timeline
             public Text name;
             public InputField inputField;
             public Image background;
+            //public Image selectedOutline;
             public RawImage gridBackground;
 
             public LeafNode<Interpolable> interpolable;
@@ -125,7 +126,11 @@ namespace Timeline
         private readonly Dictionary<string, int> _hardCodedOwnerOrder = new Dictionary<string, int>()
         {
             {_ownerId, 0 },
-            {"AIPE", 1 },
+#if HONEYSELECT2
+            {"HS2PE_fork", 1 },
+#else
+            {"AIPE_fork", 1 },
+#endif
             {"RendererEditor", 2 }
         };
         internal Dictionary<Transform, GuideObject> _allGuideObjects;
@@ -520,8 +525,7 @@ namespace Timeline
             this._keyframePrefab = bundle.LoadAsset<GameObject>("Keyframe");
             this._keyframePrefab.hideFlags |= HideFlags.HideInHierarchy;
 
-            //var kf = bundle.LoadAsset<GameObject>("Keyframe").GetComponent<RawImage>();
-            this._keyframesBackgroundMaterial = bundle2.LoadAsset<Material>("TestMat");
+            this._keyframesBackgroundMaterial = bundle2.LoadAsset<Material>("MatChecker");
 
             this._interpolablePrefab = bundle.LoadAsset<GameObject>("Interpolable");
             this._interpolablePrefab.hideFlags |= HideFlags.HideInHierarchy;
@@ -586,7 +590,7 @@ namespace Timeline
             this._interpolablesSearchField = this._ui.transform.Find("Timeline Window/Main Container/Search").GetComponent<InputField>();
             this._grid = (RectTransform)this._ui.transform.Find("Timeline Window/Main Container/Timeline/Scroll View/Viewport/Content/Grid Container");
             this._gridImage = this._ui.transform.Find("Timeline Window/Main Container/Timeline/Scroll View/Viewport/Content/Grid Container/Grid/Viewport/Background").GetComponent<RawImage>();
-            this._gridImage.material = this._keyframesBackgroundMaterial; // new Material(this._gridImage.material);
+            this._gridImage.material = bundle2.LoadAsset<Material>("MatTiling");
             this._gridTop = (RectTransform)this._ui.transform.Find("Timeline Window/Main Container/Timeline/Scroll View/Viewport/Content/Grid Container/Texts/Background");
             this._cursor = (RectTransform)this._ui.transform.Find("Timeline Window/Main Container/Timeline/Scroll View/Viewport/Content/Grid Container/Cursor");
             this._frameRateInputField = this._ui.transform.Find("Timeline Window/Buttons/Play Buttons/FrameRate").GetComponent<InputField>();
@@ -713,8 +717,7 @@ namespace Timeline
             this._keyframeValueText = this._keyframeWindow.transform.Find("Main Container/Main Fields/Value/Background/Text").GetComponent<Text>();
 
             this._curveContainer = this._keyframeWindow.transform.Find("Main Container/Curve Fields/Curve/Grid/Spline").GetComponent<RawImage>();
-            //this._curveContainer = bundle.LoadAsset<GameObject>("CurveKeyframe").GetComponent<RawImage>();
-            this._curveContainer.material = bundle2.LoadAsset<Material>("CurveMat");//new Material(this._curveContainer.material);
+            this._curveContainer.material = bundle2.LoadAsset<Material>("MatAnim");
             this._curveTimeInputField = this._keyframeWindow.transform.Find("Main Container/Curve Fields/Fields/Curve Point Time/InputField").GetComponent<InputField>();
             this._curveTimeSlider = this._keyframeWindow.transform.Find("Main Container/Curve Fields/Fields/Curve Point Time/Slider").GetComponent<Slider>();
             this._curveValueInputField = this._keyframeWindow.transform.Find("Main Container/Curve Fields/Fields/Curve Point Value/InputField").GetComponent<InputField>();
@@ -1149,9 +1152,13 @@ namespace Timeline
 
         private void UpdateInterpolableColor(InterpolableDisplay display, Color c)
         {
-            display.background.color = c;
+            display.background.material.SetColor("_Color", c);
             display.name.color = c.GetContrastingColor();
-            display.gridBackground.color = new Color(c.r, c.g, c.b, 0.825f);
+            display.gridBackground.material.SetColor("_Color", new Color(c.r, c.g, c.b, 0.825f));
+            display.background.enabled = false;
+            display.background.enabled = true;
+            display.gridBackground.enabled = false;
+            display.gridBackground.enabled = true;
         }
 
         private void UpdateSeparators()
@@ -1209,8 +1216,9 @@ namespace Timeline
                 display.name = display.container.Find("Label").GetComponent<Text>();
                 display.inputField = display.container.Find("InputField").GetComponent<InputField>();
                 display.background = display.container.GetComponent<Image>();
-                display.gridBackground = UIUtility.CreateRawImage($"Interpolable{i} Background", this._miscContainer);
-
+                display.gridBackground = UIUtility.CreateRawImage($"Interpolable{i} Background", this._miscContainer); 
+                display.background.material = new Material(this._keyframesBackgroundMaterial);
+                 
                 display.gameObject.transform.SetParent(this._verticalScrollView.content);
                 display.gameObject.transform.localPosition = Vector3.zero;
                 display.gameObject.transform.localScale = Vector3.one;
@@ -1224,6 +1232,7 @@ namespace Timeline
                     switch (e.button)
                     {
                         case PointerEventData.InputButton.Left:
+                            Studio.Studio.Instance.colorPalette.visible = false;
                             if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
                                 this.SelectAddInterpolable(interpolable);
                             else if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
@@ -1654,8 +1663,13 @@ namespace Timeline
             foreach (InterpolableDisplay display in this._displayedInterpolables)
             {
                 bool selected = this._selectedInterpolables.Any(e => e == display.interpolable.obj);
-                display.background.color = selected ? Color.green : display.interpolable.obj.color;
+                //display.selectedOutline.gameObject.SetActive(selected);
+                display.background.material.SetFloat("_DrawChecker", selected ? 1f : 0f);
                 display.gridBackground.material.SetFloat("_DrawChecker", selected ? 1f : 0f);
+                display.name.fontStyle = selected ? FontStyle.Bold : FontStyle.Normal;
+                // Forcing the texture to refresh
+                display.background.enabled = false;
+                display.background.enabled = true;
                 display.gridBackground.enabled = false;
                 display.gridBackground.enabled = true;
             }
@@ -2064,6 +2078,7 @@ namespace Timeline
 
         private void OnGridTopMouse(PointerEventData eventData)
         {
+            Studio.Studio.Instance.colorPalette.visible = false;
             if (eventData.button == PointerEventData.InputButton.Left && RectTransformUtility.ScreenPointToLocalPointInRectangle(this._gridTop, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
             {
                 float time = 10f * localPoint.x / (_baseGridWidth * this._zoomLevel);
