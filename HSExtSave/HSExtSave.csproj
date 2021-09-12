@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>HSExtSave</RootNamespace>
     <AssemblyName Condition="'$(Configuration)|$(Platform)' == 'HS|AnyCPU'">HSExtSave</AssemblyName>
-    <AssemblyName Condition="'$(Configuration)|$(Platform)' == 'PH|AnyCPU'">PHExtSave</AssemblyName>
+    <AssemblyName Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">HS2ExtSave</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>
@@ -28,18 +28,18 @@
     <DefineConstants>HONEYSELECT</DefineConstants>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'PH|AnyCPU'">
-    <OutputPath>bin\PH\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">
+    <OutputPath>bin\HS2\</OutputPath>
+    <DefineConstants>HONEYSELECT</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
-    <DefineConstants>PLAYHOME</DefineConstants>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup>
-    <StartupObject />
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="HSExtSave.cs" />
@@ -55,10 +55,6 @@
         </Reference>
         <Reference Include="Assembly-CSharp">
           <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="IllusionPlugin">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\IllusionPlugin.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
@@ -77,37 +73,28 @@
         </Reference>
       </ItemGroup>
     </When>
-    <When Condition="'$(Configuration)|$(Platform)' == 'PH|AnyCPU'">
+    <When Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">
       <ItemGroup>
         <Reference Include="0Harmony">
-          <HintPath>..\Other Dependencies\0Harmony.dll</HintPath>
-          <Private>True</Private>
-        </Reference>
-        <Reference Include="Assembly-CSharp">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\Assembly-CSharp.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\core\0Harmony.dll</HintPath>
           <Private>False</Private>
         </Reference>
-        <Reference Include="IllusionPlugin">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\IllusionPlugin.dll</HintPath>
+        <Reference Include="Assembly-CSharp">
+          <HintPath>d:\development\hsplugins\bin\HS2\Assembly-CSharp.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\System.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\System.dll</HintPath>
           <Private>False</Private>
           <SpecificVersion>True</SpecificVersion>
         </Reference>
         <Reference Include="System.Xml, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\System.Xml.dll</HintPath>
-          <Private>False</Private>
-          <SpecificVersion>True</SpecificVersion>
-        </Reference>
-        <Reference Include="System.Xml.Linq, Version=3.5.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\System.Xml.Linq.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\System.Xml.dll</HintPath>
           <Private>False</Private>
           <SpecificVersion>True</SpecificVersion>
         </Reference>
         <Reference Include="UnityEngine">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\UnityEngine.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\UnityEngine.dll</HintPath>
           <Private>False</Private>
         </Reference>
       </ItemGroup>
@@ -161,10 +148,6 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'HS|AnyCPU'">
     <PostBuildEvent>copy /Y "$(TargetDir)ILMerge\$(TargetName)$(TargetExt)" "D:\Program Files (x86)\HoneySelect\Plugins"</PostBuildEvent>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'PH|AnyCPU'">
-    <PostBuildEvent>copy /Y "$(TargetDir)ILMerge\$(TargetName)$(TargetExt)" "D:\Program Files (x86)\PlayHome\Plugins"</PostBuildEvent>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

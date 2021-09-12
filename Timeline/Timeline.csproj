@@ -18,15 +18,6 @@
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'HS|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\HS\</OutputPath>
-    <DefineConstants>TRACE;HONEYSELECT</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'AI|AnyCPU'">
     <OutputPath>bin\AI\</OutputPath>
     <DefineConstants>TRACE;BEPINEX,AISHOUJO</DefineConstants>
@@ -37,17 +28,48 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">
+    <OutputPath>bin\HS2\</OutputPath>
+    <DefineConstants>TRACE;BEPINEX,HONEYSELECT2</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <Choose>
+    <When Condition=" '$(Configuration)' == 'AI' ">
+      <ItemGroup>
+        <Reference Include="Assembly-CSharp">
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+     </ItemGroup>
+      </When>
+    <When Condition=" '$(Configuration)' == 'HS2' ">
+      <ItemGroup>
+        <Reference Include="Assembly-CSharp">
+          <HintPath>d:\development\hsplugins\bin\HS2\Assembly-CSharp.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>d:\development\hsplugins\bin\HS2\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IL">
+      <HintPath>d:\development\hsplugins\bin\HS2\IL.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+     </ItemGroup>
+   </When>
+  </Choose>
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\core\0Harmony20.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="BepInEx">
@@ -56,14 +78,6 @@
     </Reference>
     <Reference Include="Cinemachine">
       <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\Cinemachine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="IllusionInjector">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\IllusionInjector.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="IllusionPlugin">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNeoV2_Data\Managed\IllusionPlugin.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System">

@@ -5,6 +5,16 @@ using UnityEngine;
 using AIChara;
 using System.Xml;
 
+/*
+#if HONEYSELECT2
+using GuideObjectManagerInstance = Studio.GuideObjectManager.Instance;
+using Studio.Studio.Instance = Studio.Studio.Instance;
+#else
+using GuideObjectManagerInstance = GuideObjectManager.Instance;
+using Studio.Studio.Instance = Studio.Studio.Instance;
+#endif
+*/
+
 namespace Timeline
 {
     public static class BuiltInInterpolables

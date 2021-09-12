@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Xml;
 using HarmonyLib;
-using IllusionPlugin;
+//using IllusionPlugin;
 #if PLAYHOME
 using SEXY;
 #endif
@@ -11,7 +11,7 @@ using AIChara;
 
 namespace HSExtSave
 {
-    public class HSExtSave : IPlugin
+    public class HSExtSave //: IPlugin
     {
         #region Public Types
         public delegate void ExtSaveCharReadHandler(ChaFileControl charFile, XmlNode node);

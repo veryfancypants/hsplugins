@@ -11,45 +11,8 @@
     <AssemblyName>UIUtility</AssemblyName>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'HS'">
-    <OutputPath>bin\HS\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>HONEYSELECT</DefineConstants>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'PH'">
-    <OutputPath>bin\PH\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>PLAYHOME</DefineConstants>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'KOI'">
-    <OutputPath>bin\KOI\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>KOIKATSU</DefineConstants>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'AI'">
     <OutputPath>bin\AI\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -58,19 +21,18 @@
     <DefineConstants>AISHOUJO</DefineConstants>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'HS2'">
     <OutputPath>bin\HS2\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>HONEYSELECT2</DefineConstants>
+    <DefineConstants>AISHOUJO</DefineConstants>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-  </PropertyGroup>
-  <PropertyGroup>
-    <StartupObject />
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ConfirmationDialog.cs" />
@@ -109,101 +71,6 @@
     <None Include="Resources\DefaultResourcesHS.unity3d" />
   </ItemGroup>
   <Choose>
-    <When Condition=" '$(Configuration)' == 'HS' ">
-      <ItemGroup>
-        <EmbeddedResource Include="Properties\HS\Resources.resx">
-          <Generator>ResXFileCodeGenerator</Generator>
-          <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
-      </ItemGroup>
-      <ItemGroup>
-        <None Include="Resources\DefaultResources.unity3d" />
-      </ItemGroup>
-      <ItemGroup>
-        <Reference Include="Assembly-CSharp">
-          <HintPath>D:\Program Files (x86)\HoneySelect\StudioNEO_64_Data\Managed\Assembly-CSharp.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-          <HintPath>D:\Program Files (x86)\HoneySelect\StudioNEO_64_Data\Managed\System.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine">
-          <HintPath>D:\Program Files (x86)\HoneySelect\StudioNEO_64_Data\Managed\UnityEngine.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.UI">
-          <HintPath>D:\Program Files (x86)\HoneySelect\StudioNEO_64_Data\Managed\UnityEngine.UI.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.UI.Translation">
-          <HintPath>D:\Program Files (x86)\HoneySelect\StudioNEO_64_Data\Managed\UnityEngine.UI.Translation.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-      </ItemGroup>
-    </When>
-    <When Condition=" '$(Configuration)' == 'PH' ">
-      <ItemGroup>
-        <EmbeddedResource Include="Properties\HS\Resources.resx">
-          <Generator>ResXFileCodeGenerator</Generator>
-          <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
-      </ItemGroup>
-      <ItemGroup>
-        <None Include="Resources\DefaultResources.unity3d" />
-      </ItemGroup>
-      <ItemGroup>
-        <Reference Include="Assembly-CSharp">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\Assembly-CSharp.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\System.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\UnityEngine.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.UI">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\UnityEngine.UI.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.UI.Translation">
-          <HintPath>D:\Program Files (x86)\PlayHome\PlayHomeStudio64bit_Data\Managed\UnityEngine.UI.Translation.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-      </ItemGroup>
-    </When>
-    <When Condition=" '$(Configuration)' == 'KOI' ">
-      <ItemGroup>
-        <EmbeddedResource Include="Properties\KOI\Resources.resx">
-          <Generator>ResXFileCodeGenerator</Generator>
-          <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
-      </ItemGroup>
-      <ItemGroup>
-        <None Include="Resources\DefaultResourcesKOI.unity3d" />
-      </ItemGroup>
-      <ItemGroup>
-        <Reference Include="Assembly-CSharp">
-          <HintPath>D:\Program Files (x86)\Koikatu\CharaStudio_Data\Managed\Assembly-CSharp.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="System">
-          <HintPath>D:\Program Files (x86)\Koikatu\CharaStudio_Data\Managed\System.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine">
-          <HintPath>D:\Program Files (x86)\Koikatu\CharaStudio_Data\Managed\UnityEngine.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.UI">
-          <HintPath>D:\Program Files (x86)\Koikatu\CharaStudio_Data\Managed\UnityEngine.UI.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-      </ItemGroup>
-    </When>
     <When Condition=" '$(Configuration)' == 'AI' ">
       <ItemGroup>
         <EmbeddedResource Include="Properties\AI\Resources.resx">
@@ -261,35 +128,35 @@
       </ItemGroup>
       <ItemGroup>
         <Reference Include="Assembly-CSharp">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\Assembly-CSharp.dll</HintPath>
+          <HintPath>d:\development\hsplugins\bin\HS2\assembly-csharp.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\System.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\System.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.UI">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.UI.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.UI.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.UIModule">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.UIModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.TextRenderingModule">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.AssetBundleModule">
-          <HintPath>D:\Program Files (x86)\HoneySelect2\StudioNEOV2_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\StudioNEOV2_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
       </ItemGroup>

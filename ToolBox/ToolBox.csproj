@@ -13,46 +13,6 @@
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'HS|AnyCPU'">
-    <OutputPath>bin\HS\</OutputPath>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>HONEYSELECT</DefineConstants>
-    <Optimize>true</Optimize>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'PH|AnyCPU'">
-    <OutputPath>bin\PH\</OutputPath>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>PLAYHOME</DefineConstants>
-    <Optimize>true</Optimize>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'KOI|AnyCPU'">
-    <OutputPath>bin\KOI\</OutputPath>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>KOIKATSU</DefineConstants>
-    <Optimize>true</Optimize>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'EC|AnyCPU'">
-    <OutputPath>bin\EC\</OutputPath>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>EMOTIONCREATORS</DefineConstants>
-    <Optimize>true</Optimize>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'AI|AnyCPU'">
     <OutputPath>bin\AI\</OutputPath>
     <DebugType>pdbonly</DebugType>
@@ -63,18 +23,18 @@
     <Optimize>true</Optimize>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">
-    <OutputPath>bin\HS2\</OutputPath>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>HONEYSELECT2</DefineConstants>
-    <Optimize>true</Optimize>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-  </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'HS2|AnyCPU'">
+    <OutputPath>bin\HS2\</OutputPath>
+    <DefineConstants>AISHOUJO</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <Choose>
     <When Condition=" '$(Configuration)' == 'HS' ">

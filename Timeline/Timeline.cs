@@ -1,6 +1,6 @@
 ﻿using System;
 using HarmonyLib;
-using IllusionPlugin;
+//using IllusionPlugin;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -242,7 +242,7 @@ namespace Timeline
             base.Awake();
             _self = this;
 
-            this._autoSaveKeyframes = ModPrefs.GetBool("Timeline", "autoSaveKeyframes", false, true);
+            this._autoSaveKeyframes = false; // ModPrefs.GetBool("Timeline", "autoSaveKeyframes", false, true);
 
             _assemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             _singleFilesFolder = Path.Combine(_assemblyLocation, Path.Combine(_name, "Single Files"));
