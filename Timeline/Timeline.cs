@@ -114,6 +114,7 @@ namespace Timeline
 
         #region Private Variables
         internal static Timeline _self;
+        internal static GenericConfig _configFile;
         private static string _assemblyLocation;
         private static string _singleFilesFolder;
         private static bool _refreshInterpolablesListScheduled = false;
@@ -247,7 +248,8 @@ namespace Timeline
             base.Awake();
             _self = this;
 
-            this._autoSaveKeyframes = false; // ModPrefs.GetBool("Timeline", "autoSaveKeyframes", false, true);
+            _configFile = new GenericConfig(_name, this);
+            this._autoSaveKeyframes = _configFile.AddBool("autoSaveKeyframes", false, false);
 
             _assemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             _singleFilesFolder = Path.Combine(_assemblyLocation, Path.Combine(_name, "Single Files"));

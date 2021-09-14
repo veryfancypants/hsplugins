@@ -52,7 +52,10 @@
     <Compile Include="..\ToolBox\GenericPlugin.cs">
       <Link>ToolBox\GenericPlugin.cs</Link>
     </Compile>
-    <Compile Include="..\ToolBox\HarmonyExtensions.cs">
+     <Compile Include="..\ToolBox\GenericConfig.cs">
+      <Link>ToolBox\GenericConfig.cs</Link>
+    </Compile>
+   <Compile Include="..\ToolBox\HarmonyExtensions.cs">
       <Link>ToolBox\HarmonyExtensions.cs</Link>
     </Compile>
     <Compile Include="..\ToolBox\IMGUIExtensions.cs">
@@ -180,7 +183,7 @@
     </When>
     <When Condition=" '$(Configuration)' == 'HS2' ">
       <ItemGroup>
-        <EmbeddedResource Include="Resources\AIPEResources.unity3d" />
+        <EmbeddedResource Include="Resources\HS2PEResources.unity3d" />
       </ItemGroup>
       <ItemGroup>
         <Reference Include="0Harmony">
@@ -203,8 +206,8 @@
           <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\core\BepInEx.dll</HintPath>
           <Private>False</Private>
         </Reference>
-        <Reference Include="AI_ExtensibleSaveFormat">
-          <HintPath>C:\Program Files (x86)\Steam\steamapps\common\AI-Shoujo\BepInEx\plugins\AI_BepisPlugins\AI_ExtensibleSaveFormat.dll</HintPath>
+        <Reference Include="HS2_ExtensibleSaveFormat">
+          <HintPath>d:\development\hsplugins\bin\hs2\HS2_ExtensibleSaveFormat.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System">

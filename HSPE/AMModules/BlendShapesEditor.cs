@@ -1315,7 +1315,6 @@ namespace HSPE.AMModules
                         interpolateAfter: null,
                         isCompatibleWithTarget: oci =>
                         {
-                            UnityEngine.Debug.LogError("isCompatible");
                             return oci != null && oci.guideObject.transformTarget.GetComponent<PoseController>() != null;
                         },
                         getValue: (oci, parameter) =>

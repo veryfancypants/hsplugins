@@ -137,6 +137,9 @@
     <Compile Include="..\toolbox\GenericPlugin.cs">
       <Link>ToolBox\GenericPlugin.cs</Link>
     </Compile>
+    <Compile Include="..\toolbox\GenericConfig.cs">
+      <Link>ToolBox\GenericConfig.cs</Link>
+    </Compile>
     <Compile Include="..\ToolBox\HarmonyExtensions.cs">
       <Link>ToolBox\HarmonyExtensions.cs</Link>
     </Compile>
